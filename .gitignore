@@ -1,0 +1,33 @@
+# dependencies / build output
+node_modules/
+build/
+dist/
+.gradle/
+.kotlin/
+.idea/
+*.iml
+.cxx/
+.externalNativeBuild/
+captures/
+
+# local config, secrets, runtime data
+.env
+local.properties
+*.jks
+*.keystore
+server/data/
+
+# binaries and release artifacts
+*.apk
+*.aab
+deploy/*.tar.gz
+
+# tooling scratch and screenshots
+.playwright-mcp/
+.DS_Store
+*.png.tmp
+mobile_android/trash-after-restore.png
+
+# tests kept local (per mobile_android/.gitignore)
+mobile_android/app/src/test/
+mobile_android/app/src/androidTest/

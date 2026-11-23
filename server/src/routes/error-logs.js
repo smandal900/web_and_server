@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { db } from '../db.js';
 import { optionalAuth, requireAdmin, requireAuth } from '../auth.js';
+import { logEvent, safeUrl } from '../log.js';
 
 export const router = Router();
 
@@ -8,24 +9,16 @@ const LEVELS = new Set(['warn', 'error', 'fatal']);
 const SOURCES = new Set(['api', 'service', 'web']);
 const str = (v, max) => (typeof v === 'string' ? v.slice(0, max) : null);
 
-/** Insert an error log row; also used by the server's own error handler. */
-export function logError({ level = 'error', source = 'api', section = '', message, stack, method, path, status, userId }) {
-  db.prepare(
-    `INSERT INTO error_logs (level, source, section, message, stack, method, path, status, user_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  ).run(level, source, section, message, stack ?? null, method ?? null, path ?? null, status ?? null, userId ?? null);
-}
-
 // The web client reports errors here, including before login, so auth is optional.
 router.post('/', optionalAuth, (req, res) => {
   const message = str(req.body?.message, 2000);
   if (!message) return res.status(400).json({ message: 'message should not be empty', statusCode: 400 });
-  logError({
+  logEvent({
     source: 'web',
     section: str(req.body?.section, 100) ?? '',
     message,
     stack: str(req.body?.stack, 8000),
-    path: str(req.body?.url, 500),
+    path: safeUrl(str(req.body?.url, 500) ?? ''),
     userId: req.user?.id,
   });
   res.status(204).end();

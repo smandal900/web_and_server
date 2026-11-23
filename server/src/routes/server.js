@@ -19,16 +19,13 @@ router.get('/ping', (_req, res) => res.json({ res: 'pong' }));
 router.get('/config', (_req, res) => {
   const c = getAdminConfig();
   res.json({
-    externalDomain: c.server.externalDomain,
     isInitialized: hasAdmin(),
     isOnboarded: hasAdmin('AND is_onboarded = 1'),
-    loginPageMessage: c.server.loginPageMessage,
     maintenanceMode: false,
     mapDarkStyleUrl: c.map.darkStyle,
     mapLightStyleUrl: c.map.lightStyle,
     minFaces: c.machineLearning.facialRecognition.minFaces,
     oauthButtonText: c.oauth.buttonText,
-    publicUsers: c.server.publicUsers,
     trashDays: c.trash.days,
     userDeleteDelay: c.user.deleteDelay,
   });
@@ -40,7 +37,6 @@ router.get('/features', (_req, res) => {
   res.json({
     configFile: false,
     duplicateDetection: ml.enabled && ml.duplicateDetection.enabled,
-    email: c.notifications.smtp.enabled,
     facialRecognition: ml.enabled && ml.facialRecognition.enabled,
     importFaces: c.metadata.faces.import,
     map: c.map.enabled,
@@ -49,7 +45,7 @@ router.get('/features', (_req, res) => {
     ocr: ml.enabled && ml.ocr.enabled,
     passwordLogin: c.passwordLogin.enabled,
     realtimeTranscoding: c.ffmpeg.realtime.enabled,
-    reverseGeocoding: c.reverseGeocoding.enabled,
+    reverseGeocoding: true, // always on: place names come from the offline list in geo/places.bin (see geocode.js)
     search: true,
     sidecar: false,
     smartSearch: ml.enabled && ml.clip.enabled,
@@ -58,6 +54,10 @@ router.get('/features', (_req, res) => {
 });
 
 router.get('/version', (_req, res) => res.json(VERSION));
+// this server is not tied to the upstream release feed, so the newest version it knows of is its own
+router.get('/version-check', requireAuth, (_req, res) =>
+  res.json({ checkedAt: new Date().toISOString(), releaseVersion: `v${VERSION.major}.${VERSION.minor}.${VERSION.patch}` }),
+);
 router.get('/about', (_req, res) =>
   res.json({
     licensed: false,

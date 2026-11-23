@@ -7,9 +7,14 @@ export const COOKIE = { token: 'immich_access_token', type: 'immich_auth_type', 
 const MAX_AGE_MS = 400 * 24 * 60 * 60 * 1000;
 
 export class HttpError extends Error {
-  constructor(status, message) {
+  /**
+   * @param {{ log?: boolean }} options `log: false` marks a failure that is a normal answer rather than a problem
+   *   (a user without a profile picture), so it is not written to the error log.
+   */
+  constructor(status, message, { log = true } = {}) {
     super(message);
     this.status = status;
+    this.log = log;
   }
 }
 
@@ -59,9 +64,13 @@ function parseCookies(header = '') {
   return out;
 }
 
+/** Header the official Immich clients (and the native Android app) send the session token in. */
+export const TOKEN_HEADER = 'x-immich-user-token';
+
 export function extractToken(req) {
   const bearer = req.headers.authorization?.match(/^Bearer (.+)$/i)?.[1];
-  return bearer ?? parseCookies(req.headers.cookie)[COOKIE.token] ?? null;
+  const header = req.headers[TOKEN_HEADER];
+  return bearer ?? (typeof header === 'string' && header.trim() ? header.trim() : null) ?? parseCookies(req.headers.cookie)[COOKIE.token] ?? null;
 }
 
 function findSession(token) {
@@ -106,6 +115,18 @@ export function requireAdmin(req, _res, next) {
   next(req.user?.is_admin ? undefined : new HttpError(403, 'Forbidden'));
 }
 
+const ELEVATED_MS = 15 * 60 * 1000;
+
+/** Whether this session unlocked the locked folder (PIN or password) during the last 15 minutes. */
+export function isElevated(req) {
+  const row = req.sessionId ? db.prepare('SELECT elevated_at FROM sessions WHERE id = ?').get(req.sessionId) : undefined;
+  return !!row?.elevated_at && Date.now() - Date.parse(row.elevated_at) < ELEVATED_MS;
+}
+
+export function requireElevated(req) {
+  if (!isElevated(req)) throw new HttpError(401, 'Elevated session required');
+}
+
 export const toUserDto = (u) => ({
   id: u.id,
   email: u.email,
@@ -118,12 +139,11 @@ export const toUserDto = (u) => ({
   license: null,
   oauthId: '',
   profileChangedAt: u.updated_at,
-  profileImagePath: '',
+  profileImagePath: u.profile_image_path ?? '',
   quotaSizeInBytes: null,
   quotaUsageInBytes: 0,
   shouldChangePassword: !!u.should_change_password,
   status: 'active',
-  storageLabel: null,
   updatedAt: u.updated_at,
 });
 
@@ -134,7 +154,7 @@ export const toPublicUserDto = (u) => ({
   name: u.name,
   avatarColor: 'primary',
   profileChangedAt: u.updated_at,
-  profileImagePath: '',
+  profileImagePath: u.profile_image_path ?? '',
 });
 
 export const toLoginDto = (u, accessToken) => ({
@@ -142,7 +162,7 @@ export const toLoginDto = (u, accessToken) => ({
   isAdmin: !!u.is_admin,
   isOnboarded: !!u.is_onboarded,
   name: u.name,
-  profileImagePath: '',
+  profileImagePath: u.profile_image_path ?? '',
   shouldChangePassword: !!u.should_change_password,
   userEmail: u.email,
   userId: u.id,

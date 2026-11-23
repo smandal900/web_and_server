@@ -15,7 +15,6 @@ const fields: Field[] = [
   { path: 'oauth.signingAlgorithm', type: 'text', label: 'Signing algorithm', when: oauth },
   { path: 'oauth.profileSigningAlgorithm', type: 'text', label: 'Profile signing algorithm', when: oauth },
   { path: 'oauth.tokenEndpointAuthMethod', type: 'select', label: 'Token endpoint auth', options: [{ value: 'client_secret_post', label: 'client_secret_post' }, { value: 'client_secret_basic', label: 'client_secret_basic' }], when: oauth },
-  { path: 'oauth.storageLabelClaim', type: 'text', label: 'Storage label claim', when: oauth },
   { path: 'oauth.storageQuotaClaim', type: 'text', label: 'Storage quota claim', when: oauth },
   { path: 'oauth.roleClaim', type: 'text', label: 'Role claim', when: oauth },
   { path: 'oauth.buttonText', type: 'text', label: 'Button text', when: oauth },

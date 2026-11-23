@@ -8,6 +8,7 @@ import { defaultLinkForm, linkFormToInput, SharedLinkForm, type LinkFormValue } 
 import { Boundary } from '../ui/Boundary';
 import { Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
+import { copyText } from '../../lib/clipboard';
 
 const Qrcode = lazy(() => import('../ui/Qrcode'));
 
@@ -38,7 +39,7 @@ export default function ShareModal({ assetIds, albumId, onClose }: { assetIds?: 
             <Qrcode value={url} />
           </Boundary>
           <code className="w-full rounded-lg bg-panel p-2 text-center text-xs break-all">{url}</code>
-          <Button variant="outline" onClick={() => navigator.clipboard.writeText(url).then(() => toast.success(t('Copied to clipboard')))}>
+          <Button variant="outline" onClick={() => copyText(url).then(() => toast.success(t('Copied to clipboard')))}>
             {t('Copy link')}
           </Button>
         </div>

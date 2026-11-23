@@ -39,6 +39,7 @@ import { PageSpinner } from '../ui/Spinner';
 import { FaceOverlay, OcrOverlay } from './Overlays';
 import { PhotoView } from './PhotoView';
 import { VideoView } from './VideoView';
+import { copyText } from '../../lib/clipboard';
 
 // Everything that is not needed for a plain "look at one picture" is a separate chunk.
 const DetailPanel = lazy(() => import('./DetailPanel'));
@@ -196,7 +197,7 @@ export default function AssetViewer({ assetId, assetIds, onShow, onClose, onAsse
     { label: t('Edit picture'), icon: mdiImageEditOutline, onClick: () => setMode('edit'), hidden: !canEdit, divider: true },
     { label: t('Tag a person'), icon: mdiFaceRecognition, onClick: () => setMode('faces'), hidden: !isOwner || isVideo },
     { label: t('Use as album cover'), icon: mdiImageSizeSelectActual, onClick: () => run(() => updateAlbum(albumId!, { albumThumbnailAssetId: asset.id }), { success: t('Album cover changed'), invalidate: [['album'], ['albums']] }), hidden: !albumId || !isOwner },
-    { label: t('Copy link'), icon: mdiContentCopy, onClick: () => navigator.clipboard.writeText(location.href).then(() => toast.success(t('Copied to clipboard'))) },
+    { label: t('Copy link'), icon: mdiContentCopy, onClick: () => copyText(location.href).then(() => toast.success(t('Copied to clipboard'))) },
   ];
 
   const cast = () =>

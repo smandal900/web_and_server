@@ -1,6 +1,8 @@
 import { lazy, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { getTimelineSelection } from '../../api/assets';
 import type { Asset, TimelineQuery } from '../../api/types';
 import { useAssetRoute } from '../../hooks/useAssetRoute';
+import { useRun } from '../../hooks/useRun';
 import type { ActionContext, ActionId } from '../../hooks/useAssetActions';
 import { useShortcut } from '../../hooks/useShortcuts';
 import { useTimelineBuckets, useTimelineMonths } from '../../hooks/useTimeline';
@@ -10,7 +12,7 @@ import { PageSpinner } from '../ui/Spinner';
 import { EmptyState } from '../ui/Misc';
 import { mdiAlertCircleOutline } from '@mdi/js';
 import { t } from '../../i18n';
-import { fromTimeline } from './gridAsset';
+import { fromSelection, fromTimeline, type GridAsset } from './gridAsset';
 import { MonthSection } from './MonthSection';
 import { SelectionBar, type CustomAction, type PickMode } from './SelectionBar';
 import { SelectionContext, useSelectionState } from './selection';
@@ -75,9 +77,38 @@ function TimelineInner({ query, base, empty, actions = MAIN_ACTIONS, actionConte
 
   const orderedIds = useMemo(() => ordered.map((a) => a.id), [ordered]);
   const selection = useSelectionState(orderedIds, !!pick);
-  const selectedAssets = useMemo(() => ordered.filter((a) => selection.has(a.id)).map(fromTimeline), [ordered, selection]);
 
-  useShortcut('a', (e) => (e.preventDefault(), selection.setMany(orderedIds, true)), { modifier: 'ctrl' });
+  // "Select all" means every picture of this view, also the months that are not loaded (only months near the screen are,
+  // to save memory). The server lists them as small [id, flags] rows; those not loaded are kept here, so the count and
+  // every action (favorite, archive, trash, album ...) cover the whole selection.
+  const run = useRun();
+  const [unloaded, setUnloaded] = useState<Map<string, GridAsset>>(new Map());
+  const selectEverything = useCallback(async () => {
+    const result = await run(() => getTimelineSelection(query));
+    if (!result.ok) return;
+    setUnloaded(new Map(result.data.map((row) => [row[0], fromSelection(row)])));
+    selection.setMany(
+      result.data.map((row) => row[0]),
+      true,
+    );
+  }, [run, query, selection.setMany]);
+  const clearSelection = useCallback(() => {
+    selection.clear();
+    setUnloaded(new Map());
+  }, [selection.clear]);
+
+  const selectedAssets = useMemo(() => {
+    const loaded = new Map(ordered.map((a) => [a.id, a]));
+    const list: GridAsset[] = [];
+    for (const id of selection.selected) {
+      const a = loaded.get(id);
+      const known = a ? fromTimeline(a) : unloaded.get(id);
+      if (known) list.push(known);
+    }
+    return list;
+  }, [ordered, selection.selected, unloaded]);
+
+  useShortcut('a', (e) => (e.preventDefault(), void selectEverything()), { modifier: 'ctrl' });
 
   // A viewer link opened directly: make sure the month of that picture is loaded so prev/next work.
   const onAssetLoaded = useCallback((asset: Asset) => pin(`${(asset.localDateTime ?? asset.fileCreatedAt).slice(0, 7)}-01`), [pin]);
@@ -99,7 +130,7 @@ function TimelineInner({ query, base, empty, actions = MAIN_ACTIONS, actionConte
     <SelectionContext.Provider value={selectable ? selection : null}>
       <div className="relative h-full">
         {(selection.active || pick) && (
-          <SelectionBar assets={selectedAssets} actions={actions} custom={customActions} pick={pick} context={actionContext} onClear={selection.clear} onSelectAll={() => selection.setMany(orderedIds, true)} />
+          <SelectionBar assets={selectedAssets} actions={actions} custom={customActions} pick={pick} context={actionContext} onClear={clearSelection} onSelectAll={() => void selectEverything()} />
         )}
         <div ref={setScrollRoot} className="h-full overflow-y-auto pr-14 pl-3 max-md:pr-8" data-timeline-scroll>
           {header}

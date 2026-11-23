@@ -4,6 +4,7 @@ import { t } from '../../i18n';
 import { Boundary } from '../ui/Boundary';
 import { Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
+import { copyText } from '../../lib/clipboard';
 
 const Qrcode = lazy(() => import('../ui/Qrcode'));
 
@@ -12,7 +13,7 @@ export default function AppDownloadModal({ onClose }: { onClose: () => void }) {
   const toast = useToast();
   const url = location.origin;
   const obtainium = JSON.stringify({ id: 'app.alextran.immich', url: 'https://github.com/immich-app/immich', author: 'immich-app', name: 'Immich', preferredApkIndex: 0 }, null, 2);
-  const copy = (text: string) => navigator.clipboard.writeText(text).then(() => toast.success(t('Copied to clipboard')));
+  const copy = (text: string) => copyText(text).then(() => toast.success(t('Copied to clipboard')));
 
   return (
     <Modal title={t('Download the app')} onClose={onClose} size="md">

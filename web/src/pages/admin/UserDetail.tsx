@@ -52,8 +52,6 @@ export default function UserDetail() {
               <dd>{u.isAdmin ? t('Admin') : t('User')}</dd>
               <dt className="text-muted">{t('Created')}</dt>
               <dd>{formatDate(u.createdAt)}</dd>
-              <dt className="text-muted">{t('Storage label')}</dt>
-              <dd>{u.storageLabel ?? '-'}</dd>
               <dt className="text-muted">{t('Quota')}</dt>
               <dd>{u.quotaSizeInBytes ? formatBytes(u.quotaSizeInBytes) : t('Unlimited')}</dd>
               {u.deletedAt && (

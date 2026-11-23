@@ -11,6 +11,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createPool, nodeArgsFor, workerEnv } from './gateway/pool.js';
 import { createProxy } from './gateway/proxy.js';
+import { gatewayLog } from './gateway/event-log.js';
 import { serveWeb } from './static-handler.js';
 
 const SRC = path.dirname(fileURLToPath(import.meta.url));
@@ -64,10 +65,24 @@ server.requestTimeout = 0; // long uploads / video streams are fine; workers sti
 server.keepAliveTimeout = 5_000;server.listen(PORT, () => console.log(`[gateway] listening on http://localhost:${PORT}`));
 
 // Clean up abandoned chunked uploads: a short-lived process now and then, instead of a timer inside a worker.
-const sweep = () => runOnce('jobs/sweep.js').catch((error) => console.warn(`[gateway] sweep failed: ${error.message}`));
+const sweep = () =>
+  runOnce('jobs/sweep.js').catch((error) => {
+    console.warn(`[gateway] sweep failed: ${error.message}`);
+    gatewayLog({ level: 'warn', section: 'jobs', message: `Cleaning up abandoned uploads failed: ${error.message}` });
+  });
+// Photos with GPS but no place name yet (older uploads) get one from the offline place list, in the same way.
+const fillPlaces = () =>
+  runOnce('jobs/places.js').catch((error) => {
+    console.warn(`[gateway] naming places failed: ${error.message}`);
+    gatewayLog({ level: 'warn', section: 'jobs', message: `Naming the places of photos failed: ${error.message}` });
+  });
+const maintenance = async () => {
+  await sweep();
+  await fillPlaces();
+};
 setTimeout(() => {
-  sweep();
-  setInterval(sweep, SWEEP_EVERY_MS).unref();
+  maintenance();
+  setInterval(maintenance, SWEEP_EVERY_MS).unref();
 }, 60_000).unref();
 
 // The gateway never stops, so hand its unused heap back to the OS now and then (needs --expose-gc, see npm start).

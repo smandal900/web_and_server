@@ -345,6 +345,8 @@ data class ChunkedUploadRequest(
     val fileModifiedAt: String,
     val duration: Int? = null,
     val isFavorite: Boolean? = null,
+    /** The time on this phone when the upload started; every chunk is sent with it and the server ignores any other. */
+    val timestamp: String,
 )
 
 @Serializable
@@ -354,6 +356,7 @@ data class ChunkedUploadSession(
     val totalChunks: Int,
     val receivedChunks: List<Int> = emptyList(),
     val resumeWindowMinutes: Int? = null,
+    val timestamp: String? = null,
 )
 
 @Serializable

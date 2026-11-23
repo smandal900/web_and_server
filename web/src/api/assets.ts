@@ -54,6 +54,12 @@ export const getTimelineBuckets = (query: TimelineQuery, signal?: AbortSignal) =
 export const getTimelineBucket = (timeBucket: string, query: TimelineQuery, signal?: AbortSignal) =>
   call<Record<string, unknown[]>>(E.timeline.bucket, { query: { ...query, timeBucket }, signal });
 
+/** One photo of the current view as "select all" needs it: its id and a few flags (see flagsOf). */
+export type SelectionRow = [id: string, flags: number];
+/** Every photo matching the filters, not only the months that are loaded: [id, flags] per photo. */
+export const getTimelineSelection = (query: TimelineQuery, signal?: AbortSignal) =>
+  call<SelectionRow[]>(E.timeline.selection, { query: { ...query }, signal });
+
 /** The server sends one array per field; turn it into a list of objects. */
 export function zipBucket(data: Record<string, unknown[]>): TimelineAsset[] {
   const ids = (data.id ?? []) as string[];

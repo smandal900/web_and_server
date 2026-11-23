@@ -1,21 +1,15 @@
 import { lazy, useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
 import {
   mdiAccountCogOutline,
-  mdiBellOutline,
   mdiCloudUploadOutline,
   mdiCodeBraces,
-  mdiCogOutline,
   mdiDatabaseCogOutline,
   mdiDeleteOutline,
-  mdiEmailOutline,
   mdiFileDocumentOutline,
   mdiImageOutline,
   mdiKeyChainVariant,
-  mdiMapOutline,
-  mdiPaletteOutline,
   mdiUpdate,
   mdiVideoOutline,
-  mdiFileTreeOutline,
 } from '@mdi/js';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getAdminConfig, getAdminDefaults, saveAdminConfig } from '../../api/admin';
@@ -34,18 +28,12 @@ const load = (fn: () => Promise<{ default: ComponentType }>) => lazy(fn);
 // One entry per group of settings. The file behind it downloads when the section is opened.
 const SECTIONS = [
   { id: 'ffmpeg', title: 'Video transcoding', text: 'Codecs, quality and hardware acceleration', icon: mdiVideoOutline, Body: load(() => import('./settings/sections/Ffmpeg')) },
-  { id: 'image', title: 'Image settings', text: 'Thumbnails, previews and full-size images', icon: mdiImageOutline, Body: load(() => import('./settings/sections/Image')) },
-  { id: 'map', title: 'Map & location', text: 'Map styles and reverse geocoding', icon: mdiMapOutline, Body: load(() => import('./settings/sections/MapSettings')) },
+  { id: 'image', title: 'Image settings', text: 'Thumbnail and preview size, format and quality', icon: mdiImageOutline, Body: load(() => import('./settings/sections/Image')) },
   { id: 'auth', title: 'Authentication', text: 'Password, passkeys and OAuth', icon: mdiKeyChainVariant, Body: load(() => import('./settings/sections/Auth')) },
-  { id: 'server', title: 'Server', text: 'Domain, login message and visibility', icon: mdiCogOutline, Body: load(() => import('./settings/sections/Server')) },
-  { id: 'storage', title: 'Storage template', text: 'How files are named and placed', icon: mdiFileTreeOutline, Body: load(() => import('./settings/sections/Storage')) },
   { id: 'trash', title: 'Trash', text: 'Keep deleted pictures for a while', icon: mdiDeleteOutline, Body: load(() => import('./settings/sections/Trash')) },
   { id: 'upload', title: 'Uploads', text: 'Chunk size and resume window', icon: mdiCloudUploadOutline, Body: load(() => import('./settings/sections/Upload')) },
   { id: 'user', title: 'User settings', text: 'Account deletion delay', icon: mdiAccountCogOutline, Body: load(() => import('./settings/sections/UserSettings')) },
   { id: 'logging', title: 'Logging', text: 'Server log level', icon: mdiFileDocumentOutline, Body: load(() => import('./settings/sections/Logging')) },
-  { id: 'theme', title: 'Theme', text: 'Custom CSS', icon: mdiPaletteOutline, Body: load(() => import('./settings/sections/Theme')) },
-  { id: 'notifications', title: 'Email notifications', text: 'SMTP server', icon: mdiBellOutline, Body: load(() => import('./settings/sections/Notifications')) },
-  { id: 'templates', title: 'Email templates', text: 'Custom email designs', icon: mdiEmailOutline, Body: load(() => import('./settings/sections/Templates')) },
   { id: 'metadata', title: 'Metadata', text: 'Reading extra information from files', icon: mdiDatabaseCogOutline, Body: load(() => import('./settings/sections/Metadata')) },
   { id: 'version', title: 'Version check', text: 'Look for new releases', icon: mdiUpdate, Body: load(() => import('./settings/sections/VersionCheck')) },
 ];

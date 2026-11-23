@@ -22,6 +22,7 @@ import {
 import { useMediaTypes } from '../hooks/useServer';
 import { CHUNKED_THRESHOLD, chunkRange, missingChunks } from '../lib/chunks';
 import { sha1Hex } from '../lib/sha1';
+import { uid } from '../lib/uid';
 import { useToast } from './ToastProvider';
 
 export type UploadStatus = 'queued' | 'hashing' | 'checking' | 'uploading' | 'done' | 'duplicate' | 'error' | 'canceled';
@@ -95,7 +96,7 @@ export function UploadProvider({ children, shareKey }: { children: ReactNode; sh
           let sent = session.totalChunks - todo.length;
           for (const index of todo) {
             const { start, end } = chunkRange(index, file.size, session.chunkSize);
-            await putChunk(session.uploadId, index, file.slice(start, end), controller.signal, shareKey);
+            await putChunk(session, index, file.slice(start, end), controller.signal, shareKey);
             patch(id, { progress: ++sent / session.totalChunks });
           }
           result = await completeChunked(session.uploadId, shareKey);
@@ -136,7 +137,7 @@ export function UploadProvider({ children, shareKey }: { children: ReactNode; sh
           skipped++;
           continue;
         }
-        accepted.push({ id: crypto.randomUUID(), file, status: 'queued', progress: 0, albumId: options.albumId });
+        accepted.push({ id: uid(), file, status: 'queued', progress: 0, albumId: options.albumId });
       }
       if (skipped) toast.error(`${skipped} file(s) skipped: unsupported type`);
       if (accepted.length) {

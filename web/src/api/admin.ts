@@ -18,11 +18,6 @@ import type {
 export const getAdminConfig = () => call<AdminConfig>(E.admin.config);
 export const getAdminDefaults = () => call<AdminConfig>(E.admin.defaults);
 export const saveAdminConfig = (body: AdminConfig) => call<AdminConfig>(E.admin.saveConfig, { body });
-export const sendTestEmail = (body: AdminConfig) => call(E.admin.testEmail, { body });
-export const previewEmailTemplate = (name: string, template: string) =>
-  call<{ html: string; name: string }>(E.admin.previewTemplate, { params: { name }, body: { template } });
-export const previewStorageTemplate = (template: string) =>
-  call<{ path: string }>(E.admin.storageTemplatePreview, { body: { template } });
 
 // --- users ------------------------------------------------------------------
 export interface UserInput {
@@ -32,7 +27,6 @@ export interface UserInput {
   isAdmin?: boolean;
   shouldChangePassword?: boolean;
   quotaSizeInBytes?: number | null;
-  storageLabel?: string | null;
 }
 export const getAdminUsers = (withDeleted = true) => call<User[]>(E.admin.users, { query: { withDeleted } });
 export const getAdminUser = (id: string) => call<User>(E.admin.user, { params: { id } });

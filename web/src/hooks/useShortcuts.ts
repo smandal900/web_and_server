@@ -52,7 +52,7 @@ export const SHORTCUT_GROUPS: Array<{ title: string; items: Array<[string, strin
     items: [
       ['Click circle', 'Select a picture'],
       ['Shift + click', 'Select a range'],
-      ['Ctrl + A', 'Select all loaded pictures'],
+      ['Ctrl + A', 'Select all pictures'],
       ['Delete', 'Move selected to trash'],
       ['F', 'Favorite / unfavorite selected'],
       ['Shift + A', 'Archive selected'],

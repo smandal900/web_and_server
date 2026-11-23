@@ -80,6 +80,8 @@ class Uploader(private val api: ImmichApi) {
                         fileCreatedAt = Instant.ofEpochMilli(asset.takenAt).toString(),
                         fileModifiedAt = Instant.ofEpochMilli(asset.modifiedAt).toString(),
                         duration = asset.durationMs.takeIf { it > 0 }?.toInt(),
+                        // the phone's own clock; the server only compares it
+                        timestamp = Instant.ofEpochMilli(System.currentTimeMillis()).toString(),
                     ),
                 )
                 val request = Request.Builder().url("$base/assets/chunked")
@@ -108,7 +110,7 @@ class Uploader(private val api: ImmichApi) {
                     } else {
                         val bytes = withContext(Dispatchers.IO) { input.readFully(length) }
                         // a chunk can take a while on a slow link, so the progress moves while it is being sent
-                        sendChunk("$chunkUrl/chunks/$index", bytes) { sent -> onProgress((start + sent).toFloat() / asset.size) }
+                        sendChunk("$chunkUrl/chunks/$index", bytes, active.timestamp) { sent -> onProgress((start + sent).toFloat() / asset.size) }
                     }
                     onProgress((start + length).toFloat() / asset.size)
                 }
@@ -130,7 +132,7 @@ class Uploader(private val api: ImmichApi) {
         }
     }
 
-    private suspend fun sendChunk(url: String, bytes: ByteArray, onSent: (Int) -> Unit = {}) {
+    private suspend fun sendChunk(url: String, bytes: ByteArray, timestamp: String?, onSent: (Int) -> Unit = {}) {
         var attempt = 0
         val body = object : RequestBody() {
             override fun contentType() = "application/octet-stream".toMediaType()
@@ -150,7 +152,9 @@ class Uploader(private val api: ImmichApi) {
         }
         while (true) {
             try {
-                val request = Request.Builder().url(url).put(body).build()
+                val request = Request.Builder().url(url).put(body)
+                    .apply { timestamp?.let { header("x-chunk-timestamp", it) } } // the same value on every chunk of this upload
+                    .build()
                 api.execute(request)
                 return
             } catch (e: IOException) {

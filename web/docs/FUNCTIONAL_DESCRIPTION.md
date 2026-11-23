@@ -127,7 +127,7 @@ system-settings section. `<Boundary>` wraps them: spinner while loading, "Try ag
 | Route | What it does | Server |
 |---|---|---|
 | `/auth/register` | Create the first admin (only while the server has no admin) | works now |
-| `/auth/login` | Email + password. Shows the admin's login message, an OAuth button when OAuth is enabled, returns to the page you came from (`?continue=`, local paths only) | password: works now; OAuth: waits |
+| `/auth/login` | Email + password. Shows an OAuth button when OAuth is enabled, returns to the page you came from (`?continue=`, local paths only) | password: works now; OAuth: waits |
 | `/auth/change-password` | Forced when an admin created the account with "must change password" | works now |
 | `/auth/onboarding` | 4 steps for the admin: welcome, theme, language, done. Marks the admin as onboarded | works now |
 | `/auth/pin-prompt` | PIN entry (or PIN creation) for the locked folder | waits |
@@ -241,7 +241,7 @@ Creating a link: Share in the selection bar or album page → options → link w
 ### 4.11 Account settings (`/user-settings`, accordion; each section is its own chunk)
 Account (name, email, profile picture with crop) · Password · Devices (sessions, sign out one/all) · App settings (theme, language, default album order, sidebar)
 · Features (memories + duration, people, folders, tags, shared links, ratings, Chromecast; each with sidebar toggle) · Download (archive size, embedded videos)
-· Notifications (email) · Sharing (doorway to sharing pages) · OAuth (when enabled) · PIN code · Passkeys · API keys (permission picker, secret shown once) · Usage (counts, storage, quota, year heatmap) · Support (`/buy`).
+· Sharing (doorway to sharing pages) · OAuth (when enabled) · PIN code · Passkeys · API keys (permission picker, secret shown once) · Usage (counts, storage, quota, year heatmap) · Support (`/buy`).
 
 Works now: password change, devices (sessions list/sign out), theme, language, usage (counts and disk), preferences (stored in browser, §3.5).
 Waits: profile edit/picture, OAuth, PIN, passkeys, API keys.
@@ -249,9 +249,9 @@ Waits: profile edit/picture, OAuth, PIN, passkeys, API keys.
 ### 4.12 Administration (`/admin/...`, own sidebar)
 | Page | What it does | Server |
 |---|---|---|
-| Users | table, create, edit (email, name, password, admin, quota, storage label, must change password), remove (restorable), restore, delete now, show/hide removed | works now |
+| Users | table, create, edit (email, name, password, admin, quota, must change password), remove (restorable), restore, delete now, show/hide removed | works now |
 | User detail | account facts, usage, sessions, preferences, activity heatmap | works now / partly stubs |
-| System settings | 15 lazy sections (video transcoding, images, map, authentication, server, storage template with presets/variables/preview, trash, uploads, user, logging, theme CSS, email, email templates with preview, metadata, version check). Unsaved fields are marked •. Save, reset to defaults, export/import JSON | works now (`/admin/config`); some previews wait |
+| System settings | 9 lazy sections (video transcoding, images (thumbnail and preview size, format and quality; previews are WebP by default), authentication, trash, uploads, user, logging, metadata, version check). Unsaved fields are marked •. Save, reset to defaults, export/import JSON | works now (`/admin/config`); some previews wait |
 | Server status | server info, disk, library totals, per-user usage table, version history | works now |
 | Error log | filter by level/source/section/search, pages, stack traces, clear. **This web app reports its own crashes here** | works now |
 | Maintenance | integrity summary and report pages, database backups (create/restore/delete), restart | summary works (zeros); rest waits |
@@ -329,14 +329,13 @@ The server cannot tell us their exact shape, so these follow the standard Immich
 - Service worker / offline caching; "offline" banner; per-route scroll memory.
 - Version-announcement and "server restarting" dialogs (the socket receives the version, nothing shows it yet).
 - Scrubber "jump to date" dialog; arrow-key focus movement between thumbnails; download progress manager.
-- Admin **custom CSS** is saved but not applied (the server has no public endpoint that returns it).
 - Library exclusion-pattern/folder **dialogs** are replaced by an inline editable list.
 - Memory settings are in Account settings → Features, not a separate dialog.
 
 **Pages that read real server data load, but their create/save flows were not clicked through:** admin users (create, edit, remove, restore), system settings save, password change, sessions sign-out, error log filters/clear.
 
 **Written but not exercised with real data** (the server cannot answer yet): albums and activity, people/faces/merge, search results and filters, map markers and clustering, memories, partners, shared links and public pages,
-photo editor, face editor, slideshow dialog flow, tags/folders, duplicates/large files/geolocation, workflows, API keys, passkeys, OAuth, PIN, avatar crop, email previews, maintenance restore, library management, Chromecast
+photo editor, face editor, slideshow dialog flow, tags/folders, duplicates/large files/geolocation, workflows, API keys, passkeys, OAuth, PIN, avatar crop, maintenance restore, library management, Chromecast
 (needs a device that can open the picture URL), zip download. They compile, render their empty/not-supported states, and follow the standard API shapes, but expect small fixes when each one meets its real server endpoint.
 The map also needs internet access to the tile style the admin configured.
 

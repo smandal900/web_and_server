@@ -27,10 +27,7 @@ export const DEFAULT_ADMIN_CONFIG = {
     twoPass: false,
   },
   image: {
-    colorspace: 'p3',
-    extractEmbedded: false,
-    fullsize: { enabled: false, format: 'jpeg', progressive: false, quality: 80 },
-    preview: { format: 'jpeg', progressive: false, quality: 80, size: 1440 },
+    preview: { format: 'webp', progressive: false, quality: 80, size: 1440 },
     previewOnDemand: { enabled: false, retentionDays: 30 },
     thumbnail: { format: 'webp', progressive: false, quality: 80, size: 250 },
   },
@@ -63,14 +60,6 @@ export const DEFAULT_ADMIN_CONFIG = {
   },
   metadata: { faces: { import: false } },
   newVersionCheck: { channel: 'stable', enabled: false },
-  notifications: {
-    smtp: {
-      enabled: false,
-      from: '',
-      replyTo: '',
-      transport: { host: '', ignoreCert: false, password: '', port: 587, secure: false, username: '' },
-    },
-  },
   oauth: {
     allowInsecureRequests: false,
     autoLaunch: false,
@@ -89,22 +78,12 @@ export const DEFAULT_ADMIN_CONFIG = {
     roleClaim: 'immich_role',
     scope: 'openid email profile',
     signingAlgorithm: 'RS256',
-    storageLabelClaim: 'preferred_username',
     storageQuotaClaim: 'immich_quota',
     timeout: 30_000,
     tokenEndpointAuthMethod: 'client_secret_post',
   },
   passkey: { additionalDomains: [], domain: null, enabled: false },
   passwordLogin: { enabled: true },
-  reverseGeocoding: { enabled: false },
-  server: { externalDomain: '', loginPageMessage: '', publicUsers: false },
-  storageTemplate: {
-    enabled: false,
-    hashVerificationEnabled: true,
-    template: '{{y}}/{{y}}-{{MM}}-{{dd}}/{{filename}}',
-  },
-  templates: { email: { albumInviteTemplate: '', albumUpdateTemplate: '', welcomeTemplate: '' } },
-  theme: { customCss: '' },
   trash: { enabled: true, days: 30 },
   upload: { chunkSizeMiB: 10, resumeWindowMinutes: 60 },
   user: { deleteDelay: 7 },
@@ -119,6 +98,9 @@ function merge(base, override) {
   for (const key of Object.keys(base)) out[key] = merge(base[key], override[key]);
   return out;
 }
+
+/** The format new previews are saved in: 'webp' (default) or 'jpeg' (System settings > Image settings > Preview format). */
+export const previewFormat = () => (getAdminConfig().image.preview.format === 'jpeg' ? 'jpeg' : 'webp');
 
 export function getAdminConfig() {
   const row = db.prepare("SELECT value FROM settings WHERE key = 'admin-config'").get();
@@ -139,7 +121,6 @@ export function getUserConfig(c = getAdminConfig()) {
   return {
     ffmpeg: { realtime: { ...c.ffmpeg.realtime } },
     image: {
-      fullsize: { enabled: c.image.fullsize.enabled },
       preview: { size: c.image.preview.size },
       thumbnail: { size: c.image.thumbnail.size },
     },
@@ -151,7 +132,6 @@ export function getUserConfig(c = getAdminConfig()) {
       ocr: { enabled: ml.ocr.enabled },
     },
     map: { ...c.map },
-    notifications: { smtp: { enabled: c.notifications.smtp.enabled } },
     oauth: {
       autoLaunch: c.oauth.autoLaunch,
       buttonText: c.oauth.buttonText,
@@ -159,8 +139,6 @@ export function getUserConfig(c = getAdminConfig()) {
     },
     passkey: { enabled: c.passkey.enabled },
     passwordLogin: { ...c.passwordLogin },
-    reverseGeocoding: { ...c.reverseGeocoding },
-    server: { ...c.server },
     trash: { ...c.trash },
     user: { ...c.user },
   };
@@ -174,6 +152,5 @@ export function getPublicConfig(c = getAdminConfig()) {
     oauth: { autoLaunch: c.oauth.autoLaunch, buttonText: c.oauth.buttonText, enabled: c.oauth.enabled },
     passkey: { enabled: c.passkey.enabled },
     passwordLogin: { ...c.passwordLogin },
-    server: { loginPageMessage: c.server.loginPageMessage },
   };
 }

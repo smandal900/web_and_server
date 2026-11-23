@@ -12,14 +12,21 @@ import { TMP_DIR } from '../paths.js';
 import { emitToUser } from '../notify.js';
 import { chunkDir as dirOf, discardUpload as discard, sweepExpiredUploads } from '../chunk-sweep.js';
 import { getAdminConfig } from '../system-config.js';
+import { NOW_SQL, toIso, wrap } from '../util.js';
 
 const chunkPath = (id, index) => path.join(dirOf(id), `${index}.part`);
-const TOUCH = "updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')";
+
+// Pieces being received right now ("<uploadId>:<index>"). A piece is written to <index>.part.tmp and renamed when complete;
+// this set keeps two requests for the same piece (a retry while the first attempt is still running) from writing into
+// that one file together. The upload worker is a single process, so a set in memory is enough.
+const receiving = new Set();
+const TOUCH = `updated_at = ${NOW_SQL}`;
+
+/** Every chunk of an upload carries the timestamp the device chose when it started that upload, in this header. */
+const TIMESTAMP_HEADER = 'x-chunk-timestamp';
 
 export const router = Router();
 router.use(requireAuth);
-
-const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
 const getUpload = (id, userId) => {
   const row = db.prepare('SELECT * FROM chunked_uploads WHERE id = ? AND owner_id = ?').get(id, userId);
@@ -45,26 +52,35 @@ async function toDto(row) {
     totalChunks: row.total_chunks,
     receivedChunks: await receivedChunks(row.id),
     resumeWindowMinutes: getAdminConfig().upload.resumeWindowMinutes,
+    timestamp: row.device_timestamp, // the device's own timestamp, handed back so a client that resumes can keep sending it
   };
 }
 
 // Abandoned uploads are cleaned when this worker starts and by the gateway's sweep job (jobs/sweep.js).
-sweepExpiredUploads().catch((error) => console.warn(`Could not clean old uploads: ${error.message}`));
+sweepExpiredUploads().catch(async (error) => {
+  console.warn(`Could not clean old uploads: ${error.message}`);
+  const { logEvent } = await import('../log.js');
+  logEvent({ level: 'warn', source: 'service', section: 'jobs', message: `Could not clean old uploads: ${error.message}`, stack: error.stack });
+});
 
 router.post(
   '/',
   wrap(async (req, res) => {
-    const { filename, size, fileCreatedAt, fileModifiedAt, isFavorite, visibility } = req.body ?? {};
+    const { filename, size, fileCreatedAt, fileModifiedAt, isFavorite, visibility, timestamp } = req.body ?? {};
     if (typeof filename !== 'string' || !filename.trim()) throw new HttpError(400, 'filename should not be empty');
     if (!Number.isInteger(size) || size <= 0) throw new HttpError(400, 'size should be a positive integer');
+
+    // the device decides the timestamp; the server never makes one up
+    const deviceTimestamp = toIso(timestamp);
+    if (!deviceTimestamp) throw new HttpError(400, 'timestamp should be the time on the device as an ISO 8601 date');
 
     const chunkSize = getAdminConfig().upload.chunkSizeMiB * 1024 * 1024;
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
     db.prepare(
       `INSERT INTO chunked_uploads (id, owner_id, filename, size, chunk_size, total_chunks,
-         file_created_at, file_modified_at, is_favorite, visibility)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         file_created_at, file_modified_at, is_favorite, visibility, device_timestamp)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       id,
       req.user.id,
@@ -76,6 +92,7 @@ router.post(
       fileModifiedAt ?? now,
       isFavorite ? 1 : 0,
       visibility ?? null,
+      deviceTimestamp,
     );
     await fsp.mkdir(dirOf(id), { recursive: true });
     res.status(201).json(await toDto(getUpload(id, req.user.id)));
@@ -103,9 +120,22 @@ router.put(
     const index = Number(req.params.index);
     if (!Number.isInteger(index) || index < 0 || index >= upload.total_chunks) throw new HttpError(400, 'Invalid chunk index');
 
+    // A chunk must carry the same device timestamp as the upload it belongs to; any other chunk is ignored (nothing is
+    // stored). Uploads started before this check existed have no timestamp and are not checked.
+    if (upload.device_timestamp) {
+      const sent = req.headers[TIMESTAMP_HEADER];
+      if (!sent) throw new HttpError(400, `The ${TIMESTAMP_HEADER} header is required`);
+      if (toIso(sent) !== upload.device_timestamp) {
+        throw new HttpError(409, `Chunk ${index} ignored: its timestamp does not match the timestamp of this upload`);
+      }
+    }
+
     const expected = index === upload.total_chunks - 1 ? upload.size - upload.chunk_size * index : upload.chunk_size;
     const target = chunkPath(upload.id, index);
-    const partial = `${target}.${crypto.randomUUID()}.tmp`;
+    const partial = `${target}.tmp`;
+    const key = `${upload.id}:${index}`;
+    if (receiving.has(key)) throw new HttpError(409, `Chunk ${index} is already being received`, { log: false });
+    receiving.add(key);
 
     try {
       const body = req.headers['content-encoding'] === 'gzip' ? [req, zlib.createGunzip()] : [req];
@@ -116,6 +146,8 @@ router.put(
     } catch (error) {
       await fsp.rm(partial, { force: true });
       throw error;
+    } finally {
+      receiving.delete(key);
     }
 
     db.prepare(`UPDATE chunked_uploads SET ${TOUCH} WHERE id = ?`).run(upload.id);

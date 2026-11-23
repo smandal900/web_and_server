@@ -16,6 +16,7 @@ import { useRun } from '../../hooks/useRun';
 import { t } from '../../i18n';
 import { formatDateTime } from '../../lib/format';
 import { useToast } from '../../state/ToastProvider';
+import { copyText } from '../../lib/clipboard';
 
 const Qrcode = lazy(() => import('../../components/ui/Qrcode'));
 
@@ -55,7 +56,7 @@ export default function SharedLinks() {
                   </p>
                 </div>
                 <div className="flex shrink-0">
-                  <IconButton path={mdiContentCopy} label={t('Copy link')} onClick={() => navigator.clipboard.writeText(shareLinkUrl(link)).then(() => toast.success(t('Copied to clipboard')))} />
+                  <IconButton path={mdiContentCopy} label={t('Copy link')} onClick={() => copyText(shareLinkUrl(link)).then(() => toast.success(t('Copied to clipboard')))} />
                   <IconButton path={mdiQrcode} label={t('QR code')} onClick={() => setQr(link)} />
                   <Link to={`/shared-links/${link.id}/edit`}>
                     <IconButton path={mdiPencilOutline} label={t('Edit')} />

@@ -7,12 +7,11 @@ import { db } from '../db.js';
 import { ingestAsset, normalizeChecksum, toAssetDto } from '../assets.js';
 import { TMP_DIR } from '../paths.js';
 import { emitToUser } from '../notify.js';
+import { wrap } from '../util.js';
 
 // Upload group: POST /assets and POST /assets/bulk-upload-check. Everything that only reads lives in assets.js.
 export const router = Router();
 router.use(requireAuth);
-
-const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
 // Uploads stream straight to disk, so large videos never sit in memory.
 const upload = multer({

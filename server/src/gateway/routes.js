@@ -3,7 +3,7 @@
 //   web       everything that is not /api (the React app)
 //   realtime  /api/socket.io
 //   upload    POST /api/assets, POST /api/assets/bulk-upload-check, /api/assets/chunked/**
-//   media     every other /api/assets/** (thumbnails, originals, video, statistics)
+//   media     every other /api/assets/** (thumbnails, originals, video, statistics) and /api/download/** (zip)
 //   timeline  /api/timeline/**
 //   admin     /api/admin/**
 //   core      all remaining /api (auth, users, sessions, config, server, stubs, error-logs)
@@ -21,6 +21,7 @@ export function groupFor(method, url) {
     if ((p === '/assets' || p === '/assets/') && method === 'POST') return 'upload';
     return 'media';
   }
+  if (p === '/download' || p.startsWith('/download/')) return 'media'; // zip downloads stream files: same worker as thumbnails and originals
   if (p === '/timeline' || p.startsWith('/timeline/')) return 'timeline';
   if (p === '/admin' || p.startsWith('/admin/')) return 'admin';
   return 'core';

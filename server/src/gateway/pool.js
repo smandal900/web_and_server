@@ -2,6 +2,7 @@
 import { fork } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { gatewayLog } from './event-log.js';
 
 const WORKERS_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'workers');
 
@@ -89,6 +90,11 @@ class Group {
     this.onMessage = onMessage;
   }
 
+  /** Exit code 134 (abort) is how Node ends when it runs out of heap: say so, with the setting that raises the limit. */
+  #memoryHint(code) {
+    return code === 134 ? ` - most likely out of memory: it reached its ${this.heapMb} MB heap limit (raise HEAP_MB_${this.members[0].toUpperCase()})` : '';
+  }
+
   begin() {
     this.active++;
     this.lastUsed = Date.now();
@@ -125,7 +131,10 @@ class Group {
       });
       this.child = child;
 
-      const timer = setTimeout(() => child.kill('SIGKILL'), START_TIMEOUT_MS);
+      const timer = setTimeout(() => {
+        gatewayLog({ section: 'worker', message: `${this.name} worker did not become ready within ${START_TIMEOUT_MS / 1000}s and was stopped` });
+        child.kill('SIGKILL');
+      }, START_TIMEOUT_MS);
 
       child.on('message', (m) => {
         if (m?.type === 'ready') {
@@ -153,9 +162,13 @@ class Group {
         }
         if (wasStarting) {
           this.failedAt = Date.now();
-          reject(new Error(`${this.name} worker exited during start (code ${code}, signal ${signal})`));
+          const message = `${this.name} worker exited during start (code ${code}, signal ${signal})${this.#memoryHint(code)}`;
+          gatewayLog({ section: 'worker', message });
+          reject(new Error(message));
         } else if (!expected) {
           log(`${this.name} worker crashed (code ${code}, signal ${signal}); it restarts on the next request`);
+          // exit code 134 (abort) is how Node ends when it runs out of heap: say so, with the setting that raises the limit
+          gatewayLog({ section: 'worker', message: `${this.name} worker crashed (code ${code}, signal ${signal})${this.#memoryHint(code)}; it restarts on the next request` });
         }
         this.#stopDone?.();
         this.#stopDone = null;

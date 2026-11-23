@@ -69,7 +69,7 @@ export default function MapPage() {
       </PageHeader>
       <div className="relative min-h-0 flex-1">
         {disabled ? (
-          <EmptyState icon={mdiMapOutline} title={t('The map is turned off')} text={t('An administrator can enable it, and choose a map style, in System settings.')} />
+          <EmptyState icon={mdiMapOutline} title={t('The map is turned off')} text={t('Place names are still shown on the Places page and in the details of each photo.')} />
         ) : (
           <>
             <Boundary>

@@ -1,7 +1,6 @@
 import { lazy, type ComponentType } from 'react';
 import {
   mdiAccountOutline,
-  mdiBellOutline,
   mdiChartBox,
   mdiCog,
   mdiCrownOutline,
@@ -29,7 +28,6 @@ const Devices = Section(() => import('./sections/Devices'));
 const App = Section(() => import('./sections/AppSettings'));
 const Features = Section(() => import('./sections/Features'));
 const Download = Section(() => import('./sections/Download'));
-const Notifications = Section(() => import('./sections/Notifications'));
 const SharingSection = Section(() => import('./sections/Sharing'));
 const OAuth = Section(() => import('./sections/OAuth'));
 const Pin = Section(() => import('./sections/Pin'));
@@ -47,7 +45,6 @@ export default function UserSettings() {
     { title: t('App settings'), subtitle: t('Theme and language'), icon: mdiCog, Body: App },
     { title: t('Features'), subtitle: t('Memories, people, folders, tags and more'), icon: mdiFeatureSearchOutline, Body: Features },
     { title: t('Download'), subtitle: t('Archive size and options'), icon: mdiDownloadOutline, Body: Download },
-    { title: t('Notifications'), subtitle: t('Email notifications'), icon: mdiBellOutline, Body: Notifications },
     { title: t('Sharing'), subtitle: t('Partners and shared people'), icon: mdiShareVariantOutline, Body: SharingSection },
     { title: t('OAuth'), subtitle: t('Link your account to a login provider'), icon: mdiShieldKeyOutline, Body: OAuth, show: !!features?.oauth },
     { title: t('PIN code'), subtitle: t('Protect the locked folder'), icon: mdiLockOutline, Body: Pin },

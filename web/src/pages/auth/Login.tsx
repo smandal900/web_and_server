@@ -68,9 +68,6 @@ export default function Login() {
 
   return (
     <AuthLayout title={t('Login')}>
-      {publicConfig.server?.loginPageMessage && (
-        <p className="mb-4 rounded-xl bg-primary/10 p-3 text-center text-sm" dangerouslySetInnerHTML={{ __html: escapeAllowBreaks(publicConfig.server.loginPageMessage) }} />
-      )}
       {passwordLogin && (
         <form onSubmit={submit} className="flex flex-col gap-4">
           <TextField label={t('Email')} type="email" autoComplete="email" required value={email} onChange={setEmail} />
@@ -93,9 +90,4 @@ export default function Login() {
       {!passwordLogin && !oauth?.enabled && <p className="text-center text-sm text-muted">{t('Login is disabled.')}</p>}
     </AuthLayout>
   );
-}
-
-/** The admin's login message may be plain text with line breaks. Escape everything, keep the breaks. */
-function escapeAllowBreaks(text: string) {
-  return text.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!).replace(/\n/g, '<br/>');
 }

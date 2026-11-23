@@ -3,7 +3,8 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
-import { THUMB_SIZES, TMP_DIR, thumbFile } from './paths.js';
+import { PREVIEW_FORMATS, THUMB_SIZES, TMP_DIR, thumbFile } from './paths.js';
+import { previewFormat } from './system-config.js';
 
 // Re-exported so existing imports keep working.
 export { LIBRARY_DIR, THUMB_DIR, TMP_DIR, THUMB_SIZES, thumbFile } from './paths.js';
@@ -183,6 +184,28 @@ async function readImage(filePath) {
   };
 }
 
+/**
+ * A GPS position written the way phones store it in a video: ISO 6709, "+31.0871+077.1406/" (an altitude may follow).
+ * @returns {{ latitude: number, longitude: number } | null}
+ */
+export function parseIso6709(value) {
+  const m = /^\s*([+-]\d{1,2}(?:\.\d+)?)([+-]\d{1,3}(?:\.\d+)?)/.exec(String(value ?? ''));
+  if (!m) return null;
+  const latitude = Number(m[1]);
+  const longitude = Number(m[2]);
+  if (!(Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180)) return null;
+  if (latitude === 0 && longitude === 0) return null; // what a camera writes when it had no GPS fix
+  return { latitude, longitude };
+}
+
+const positionIn = (tags) => parseIso6709(tags?.location ?? tags?.['location-eng'] ?? tags?.['com.apple.quicktime.location.ISO6709']);
+
+/** The GPS position stored in a video file, or null (used to name the places of videos stored before this was read). */
+export async function readVideoPosition(filePath) {
+  const info = JSON.parse((await run('ffprobe', ['-v', 'error', '-print_format', 'json', '-show_format', filePath])).toString());
+  return positionIn(info.format?.tags);
+}
+
 async function readVideo(filePath) {
   const info = JSON.parse(
     (await run('ffprobe', ['-v', 'error', '-print_format', 'json', '-show_format', '-show_streams', filePath])).toString(),
@@ -202,7 +225,7 @@ async function readVideo(filePath) {
     // the container stores UTC; only used when the file name has no local time
     wallClock: wallClockFromExif(typeof created === 'string' ? created.replace(/\.\d+Z?$/, '').replace('Z', '') : null),
     offsetMin: 0,
-    exif: { exifImageWidth: width, exifImageHeight: height },
+    exif: { exifImageWidth: width, exifImageHeight: height, ...(positionIn(info.format?.tags) ?? { latitude: null, longitude: null }) },
   };
 }
 
@@ -224,14 +247,14 @@ export async function readMetadata(filePath, { type, name, clientCreatedAt }) {
 // Thumbnails
 // ---------------------------------------------------------------------------
 
-async function render(source, out, size) {
+async function render(source, out, size, format) {
   const sharp = await getSharp();
   const { px } = THUMB_SIZES[size];
   await fsp.mkdir(path.dirname(out), { recursive: true });
   const img = sharp(source, { failOn: 'none', sequentialRead: true })
     .rotate()
     .resize({ width: px, height: px, fit: 'outside', withoutEnlargement: true });
-  await (size === 'thumbnail' ? img.webp({ quality: 80 }) : img.jpeg({ quality: 80 })).toFile(out);
+  await (size === 'preview' && format === 'jpeg' ? img.jpeg({ quality: 80 }) : img.webp({ quality: 80 })).toFile(out);
 }
 
 async function thumbhashOf(source) {
@@ -264,12 +287,61 @@ async function extractFrame(videoPath, id, durationMs) {
  */
 export const generateThumbnails = (job, sizes, withThumbhash) => gated(() => generate(job, sizes, withThumbhash));
 
-async function generate({ id, type, filePath, durationMs }, sizes = ['thumbnail', 'preview'], withThumbhash = true) {
-  const source = type === 'VIDEO' ? await extractFrame(filePath, id, durationMs) : filePath;
+/**
+ * Apply a list of edits ({ action: 'crop' | 'rotate' | 'mirror', parameters }) in order and write the result to a temp file.
+ * Every step goes through a buffer, because sharp would otherwise reorder crop and rotate.
+ * @returns {Promise<{ file: string, width: number, height: number }>}
+ */
+export async function renderEdited(source, edits, id) {
+  const sharp = await getSharp();
+  let buffer = await sharp(source, { failOn: 'none' }).rotate().toBuffer();
+  for (const edit of edits) {
+    const p = edit.parameters ?? {};
+    let img = sharp(buffer, { failOn: 'none' });
+    if (edit.action === 'crop') {
+      const meta = await img.metadata();
+      const left = Math.max(0, Math.min(Math.round(p.x ?? 0), (meta.width ?? 1) - 1));
+      const top = Math.max(0, Math.min(Math.round(p.y ?? 0), (meta.height ?? 1) - 1));
+      const width = Math.max(1, Math.min(Math.round(p.width ?? meta.width), (meta.width ?? 1) - left));
+      const height = Math.max(1, Math.min(Math.round(p.height ?? meta.height), (meta.height ?? 1) - top));
+      img = img.extract({ left, top, width, height });
+    } else if (edit.action === 'rotate') {
+      img = img.rotate(Number(p.angle) || 0);
+    } else if (edit.action === 'mirror') {
+      img = p.axis === 'vertical' ? img.flip() : img.flop();
+    }
+    buffer = await img.toBuffer();
+  }
+  const file = path.join(TMP_DIR, `${id}-edited.png`);
+  await fsp.mkdir(TMP_DIR, { recursive: true });
+  const info = await sharp(buffer, { failOn: 'none' }).png({ compressionLevel: 1 }).toFile(file);
+  return { file, width: info.width, height: info.height };
+}
+
+async function generate({ id, ownerId, originalPath, type, filePath, durationMs, edits }, sizes = ['thumbnail', 'preview'], withThumbhash = true) {
+  let source = type === 'VIDEO' ? await extractFrame(filePath, id, durationMs) : filePath;
+  let edited = null;
   try {
-    for (const size of sizes) await render(source, thumbFile(id, size), size);
-    return withThumbhash ? await thumbhashOf(source) : null;
+    if (type === 'IMAGE' && edits?.length) {
+      edited = await renderEdited(source, edits, id);
+      source = edited.file;
+    }
+    const asset = { id, owner_id: ownerId, original_path: originalPath };
+    const format = previewFormat();
+    for (const size of sizes) await render(source, thumbFile(asset, size, format), size, format);
+    // a preview kept in another format (made before the setting changed, or before webp became the default) is now stale
+    if (sizes.includes('preview')) for (const other of Object.keys(PREVIEW_FORMATS)) if (other !== format) await fsp.rm(thumbFile(asset, 'preview', other), { force: true });
+    const hash = withThumbhash ? await thumbhashOf(source) : null;
+    return hash;
   } finally {
     if (type === 'VIDEO') await fsp.rm(source, { force: true });
+    if (edited) await fsp.rm(edited.file, { force: true });
   }
+}
+
+/** Size of an image after the edits (used for the grid aspect ratio). */
+export async function editedSize(filePath, edits, id) {
+  const { file, width, height } = await renderEdited(filePath, edits, id);
+  await fsp.rm(file, { force: true });
+  return { width, height };
 }

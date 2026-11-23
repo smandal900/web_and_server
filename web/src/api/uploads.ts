@@ -61,11 +61,24 @@ export interface ChunkedSession {
   chunkSize: number;
   totalChunks: number;
   receivedChunks: number[];
+  /** The time on this device when the upload started. Every chunk of the upload is sent with it; the server ignores others. */
+  timestamp: string;
 }
 export const createChunked = (file: File, meta: UploadMeta, key?: string) =>
-  call<ChunkedSession>(E.assets.chunkedCreate, { body: { filename: file.name, size: file.size, ...meta }, query: { key } });
+  call<ChunkedSession>(E.assets.chunkedCreate, {
+    // the timestamp comes from this device's clock, the server only compares it
+    body: { filename: file.name, size: file.size, ...meta, timestamp: new Date().toISOString() },
+    query: { key },
+  });
 export const getChunked = (id: string) => call<ChunkedSession>(E.assets.chunkedGet, { params: { id } });
 export const deleteChunked = (id: string) => call(E.assets.chunkedDelete, { params: { id } });
-export const putChunk = (id: string, index: number, data: Blob, signal: AbortSignal, key?: string) =>
-  call(E.assets.chunkedPut, { params: { id, index }, body: data, signal, query: { key } });
+export const CHUNK_TIMESTAMP_HEADER = 'x-chunk-timestamp';
+export const putChunk = (session: ChunkedSession, index: number, data: Blob, signal: AbortSignal, key?: string) =>
+  call(E.assets.chunkedPut, {
+    params: { id: session.uploadId, index },
+    body: data,
+    signal,
+    query: { key },
+    headers: { [CHUNK_TIMESTAMP_HEADER]: session.timestamp },
+  });
 export const completeChunked = (id: string, key?: string) => call<UploadResult>(E.assets.chunkedComplete, { params: { id }, query: { key } });

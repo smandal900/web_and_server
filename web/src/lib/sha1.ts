@@ -1,3 +1,5 @@
+import { uid } from './uid';
+
 // Main-thread side of the hashing worker: one worker, jobs matched by id.
 let worker: Worker | undefined;
 const waiting = new Map<string, { resolve: (hex: string) => void; reject: (e: Error) => void }>();
@@ -17,7 +19,7 @@ function getWorker() {
 }
 
 export function sha1Hex(file: File): Promise<string> {
-  const id = crypto.randomUUID();
+  const id = uid();
   return new Promise((resolve, reject) => {
     waiting.set(id, { resolve, reject });
     getWorker().postMessage({ id, file });

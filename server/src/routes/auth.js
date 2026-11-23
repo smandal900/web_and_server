@@ -6,12 +6,14 @@ import {
   clearAuthCookies,
   createSession,
   hashPassword,
+  isElevated,
   requireAuth,
   setAuthCookies,
   toLoginDto,
   toUserDto,
   verifyPassword,
 } from '../auth.js';
+import { NOW_SQL, wrap } from '../util.js';
 
 export const router = Router();
 
@@ -21,7 +23,6 @@ function requireFields(body, ...fields) {
   }
 }
 
-const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
 router.post(
   '/admin-sign-up',
@@ -69,7 +70,7 @@ router.post(
     }
     db.prepare(
       `UPDATE users SET password_hash = ?, should_change_password = 0,
-       updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?`,
+       updated_at = ${NOW_SQL} WHERE id = ?`,
     ).run(await hashPassword(req.body.newPassword), req.user.id);
     if (req.body.invalidateSessions) {
       db.prepare('DELETE FROM sessions WHERE user_id = ? AND id != ?').run(req.user.id, req.sessionId);
@@ -84,7 +85,66 @@ router.post('/logout', requireAuth, (req, res) => {
   res.json({ successful: true, redirectUri: '/auth/login?autoLaunch=0' });
 });
 
-// PIN codes and elevated sessions are not implemented yet, so the locked folder stays unavailable.
-router.get('/status', requireAuth, (_req, res) => res.json({ isElevated: false, password: true, pinCode: false }));
+// ---- locked folder: a PIN, and a session that is "elevated" for 15 minutes after the PIN (or password) was entered ----
+
+const PIN = /^\d{4,6}$/;
+
+/** Checks the PIN the caller sent, or their account password as the fallback the official apps allow. */
+async function proves(user, body) {
+  if (typeof body?.pinCode === 'string' && user.pin_hash) return verifyPassword(body.pinCode, user.pin_hash);
+  if (typeof body?.password === 'string') return verifyPassword(body.password, user.password_hash);
+  return false;
+}
+
+router.get('/status', requireAuth, (req, res) => res.json({ isElevated: isElevated(req), password: true, pinCode: !!req.user.pin_hash }));
+
+router.post(
+  '/pin-code',
+  requireAuth,
+  wrap(async (req, res) => {
+    if (req.user.pin_hash) throw new HttpError(400, 'A PIN code is already set');
+    if (!PIN.test(String(req.body?.pinCode ?? ''))) throw new HttpError(400, 'The PIN code must be 4 to 6 digits');
+    db.prepare('UPDATE users SET pin_hash = ? WHERE id = ?').run(await hashPassword(req.body.pinCode), req.user.id);
+    res.status(204).end();
+  }),
+);
+
+router.put(
+  '/pin-code',
+  requireAuth,
+  wrap(async (req, res) => {
+    if (!req.user.pin_hash) throw new HttpError(400, 'No PIN code is set');
+    if (!(await proves(req.user, req.body))) throw new HttpError(400, 'Wrong PIN code');
+    if (!PIN.test(String(req.body?.newPinCode ?? ''))) throw new HttpError(400, 'The new PIN code must be 4 to 6 digits');
+    db.prepare('UPDATE users SET pin_hash = ? WHERE id = ?').run(await hashPassword(req.body.newPinCode), req.user.id);
+    res.status(204).end();
+  }),
+);
+
+router.delete(
+  '/pin-code',
+  requireAuth,
+  wrap(async (req, res) => {
+    if (!(await proves(req.user, req.body))) throw new HttpError(400, 'Wrong PIN code or password');
+    db.prepare('UPDATE users SET pin_hash = NULL WHERE id = ?').run(req.user.id);
+    db.prepare('UPDATE sessions SET elevated_at = NULL WHERE user_id = ?').run(req.user.id);
+    res.status(204).end();
+  }),
+);
+
+router.post(
+  '/session/unlock',
+  requireAuth,
+  wrap(async (req, res) => {
+    if (!(await proves(req.user, req.body))) throw new HttpError(401, 'Wrong PIN code');
+    db.prepare(`UPDATE sessions SET elevated_at = ${NOW_SQL} WHERE id = ?`).run(req.sessionId);
+    res.status(204).end();
+  }),
+);
+
+router.post('/session/lock', requireAuth, (req, res) => {
+  db.prepare('UPDATE sessions SET elevated_at = NULL WHERE id = ?').run(req.sessionId);
+  res.status(204).end();
+});
 
 router.post('/validateToken', requireAuth, (_req, res) => res.json({ authStatus: true }));

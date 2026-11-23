@@ -28,6 +28,27 @@ export function listen(server, { onClose } = {}) {
   });
   process.on('disconnect', () => process.exit(0)); // the gateway died: do not stay behind as an orphan
 
+  // A bug that nothing caught ends this process. Write it to the error log (with its stack) first; the gateway
+  // starts a fresh worker on the next request. The log code is loaded only now, so a healthy worker never pays for it.
+  const dies = (title) => async (error) => {
+    try {
+      const { logEvent } = await import('../log.js');
+      logEvent({
+        level: 'fatal',
+        source: 'service',
+        section: 'worker',
+        message: `${title}: ${error?.message ?? error}`,
+        stack: error?.stack,
+      });
+    } catch {
+      // the log is unavailable; the console line below still shows it
+    }
+    console.error(`[worker] ${title}:`, error);
+    process.exit(1);
+  };
+  process.on('uncaughtException', dies('Uncaught exception'));
+  process.on('unhandledRejection', dies('Unhandled promise rejection'));
+
   // Give memory back to the OS between bursts of traffic (flag --expose-gc is set by the gateway).
   if (global.gc) setInterval(() => global.gc(), 20_000).unref();
 }

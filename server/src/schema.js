@@ -93,4 +93,131 @@ export function migrate(db) {
     db.exec('ALTER TABLE users ADD COLUMN cluster_group_id TEXT');
   }
   db.exec('UPDATE users SET cluster_group_id = id WHERE cluster_group_id IS NULL');
+
+  const addColumn = (table, column, ddl) => {
+    if (!db.prepare(`PRAGMA table_info(${table})`).all().some((c) => c.name === column)) {
+      db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${ddl}`);
+    }
+  };
+  addColumn('chunked_uploads', 'device_timestamp', 'TEXT'); // time on the uploading device; every chunk must carry the same one
+  addColumn('users', 'pin_hash', 'TEXT'); //                 locked folder PIN
+  addColumn('users', 'profile_image_path', "TEXT NOT NULL DEFAULT ''"); // file name inside data/profile
+  addColumn('sessions', 'elevated_at', 'TEXT'); //            set while the locked folder is unlocked
+  addColumn('assets', 'stack_id', 'TEXT');
+  addColumn('assets', 'edits', 'TEXT'); //                    JSON list of crop / rotate / mirror edits
+  addColumn('assets', 'edit_width', 'INTEGER'); //            size after the edits are applied
+  addColumn('assets', 'edit_height', 'INTEGER');
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS albums (
+      id                  TEXT PRIMARY KEY,
+      owner_id            TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      name                TEXT NOT NULL DEFAULT '',
+      description         TEXT NOT NULL DEFAULT '',
+      thumbnail_asset_id  TEXT,
+      sort_order          TEXT NOT NULL DEFAULT 'desc',
+      is_activity_enabled INTEGER NOT NULL DEFAULT 1,
+      created_at          TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+      updated_at          TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_albums_owner ON albums(owner_id);
+
+    CREATE TABLE IF NOT EXISTS album_assets (
+      album_id TEXT NOT NULL REFERENCES albums(id) ON DELETE CASCADE,
+      asset_id TEXT NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
+      added_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+      PRIMARY KEY (album_id, asset_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_album_assets_asset ON album_assets(asset_id);
+
+    CREATE TABLE IF NOT EXISTS album_users (
+      album_id TEXT NOT NULL REFERENCES albums(id) ON DELETE CASCADE,
+      user_id  TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      role     TEXT NOT NULL DEFAULT 'editor',
+      PRIMARY KEY (album_id, user_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_album_users_user ON album_users(user_id);
+
+    CREATE TABLE IF NOT EXISTS activities (
+      id         TEXT PRIMARY KEY,
+      album_id   TEXT NOT NULL REFERENCES albums(id) ON DELETE CASCADE,
+      asset_id   TEXT REFERENCES assets(id) ON DELETE CASCADE,
+      user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      type       TEXT NOT NULL,
+      comment    TEXT,
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_activities_album ON activities(album_id, created_at);
+
+    CREATE TABLE IF NOT EXISTS people (
+      id                 TEXT PRIMARY KEY,
+      owner_id           TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      name               TEXT NOT NULL DEFAULT '',
+      birth_date         TEXT,
+      is_hidden          INTEGER NOT NULL DEFAULT 0,
+      is_favorite        INTEGER NOT NULL DEFAULT 0,
+      thumbnail_asset_id TEXT,
+      created_at         TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+      updated_at         TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    );
+    CREATE TABLE IF NOT EXISTS person_assets (
+      person_id TEXT NOT NULL REFERENCES people(id) ON DELETE CASCADE,
+      asset_id  TEXT NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
+      PRIMARY KEY (person_id, asset_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_person_assets_asset ON person_assets(asset_id);
+
+    CREATE TABLE IF NOT EXISTS tags (
+      id         TEXT PRIMARY KEY,
+      owner_id   TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      value      TEXT NOT NULL,
+      color      TEXT,
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+      updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+      UNIQUE (owner_id, value)
+    );
+    CREATE TABLE IF NOT EXISTS tag_assets (
+      tag_id   TEXT NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+      asset_id TEXT NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
+      PRIMARY KEY (tag_id, asset_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_tag_assets_asset ON tag_assets(asset_id);
+
+    CREATE TABLE IF NOT EXISTS stacks (
+      id               TEXT PRIMARY KEY,
+      owner_id         TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      primary_asset_id TEXT NOT NULL,
+      created_at       TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+      updated_at       TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_assets_stack ON assets(stack_id);
+
+    CREATE TABLE IF NOT EXISTS shared_links (
+      id             TEXT PRIMARY KEY,
+      key            TEXT NOT NULL UNIQUE,
+      owner_id       TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      type           TEXT NOT NULL,              -- ALBUM | INDIVIDUAL
+      album_id       TEXT REFERENCES albums(id) ON DELETE CASCADE,
+      description    TEXT,
+      password       TEXT,
+      slug           TEXT UNIQUE,
+      expires_at     TEXT,
+      allow_upload   INTEGER NOT NULL DEFAULT 0,
+      allow_download INTEGER NOT NULL DEFAULT 1,
+      show_metadata  INTEGER NOT NULL DEFAULT 1,
+      created_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    );
+    CREATE TABLE IF NOT EXISTS shared_link_assets (
+      link_id  TEXT NOT NULL REFERENCES shared_links(id) ON DELETE CASCADE,
+      asset_id TEXT NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
+      PRIMARY KEY (link_id, asset_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS partners (
+      shared_by_id   TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      shared_with_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      in_timeline    INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (shared_by_id, shared_with_id)
+    );
+  `);
 }

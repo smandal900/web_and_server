@@ -7,7 +7,6 @@ export const DEFAULT_PREFERENCES: Preferences = {
   albums: { defaultAssetOrder: 'desc' },
   cast: { gCastEnabled: false },
   download: { archiveSize: 4294967296, includeEmbeddedVideos: false },
-  emailNotifications: { enabled: true, albumInvite: true, albumUpdate: true },
   folders: { enabled: false, sidebarWeb: false },
   memories: { enabled: true, duration: 5 },
   people: { enabled: true, sidebarWeb: false },

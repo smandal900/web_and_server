@@ -25,6 +25,18 @@ class Db {
     const st = this.raw.prepare(sql);
     return { run: (...a) => st.run(...a), get: (...a) => st.get(...a), all: (...a) => st.all(...a) };
   }
+  /** Run fn inside one transaction: one disk sync for a whole batch instead of one per statement. */
+  transaction(fn) {
+    this.raw.exec('BEGIN');
+    try {
+      const result = fn();
+      this.raw.exec('COMMIT');
+      return result;
+    } catch (error) {
+      this.raw.exec('ROLLBACK');
+      throw error;
+    }
+  }
   close() {
     this.open = false;
     this.raw.close();

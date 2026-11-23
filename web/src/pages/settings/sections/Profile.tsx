@@ -7,13 +7,16 @@ import { Avatar } from '../../../components/ui/Misc';
 import { useRun } from '../../../hooks/useRun';
 import { t } from '../../../i18n';
 import { formatDate } from '../../../lib/format';
+import { copyText } from '../../../lib/clipboard';
 import { useAuth } from '../../../state/AuthProvider';
+import { useToast } from '../../../state/ToastProvider';
 
 const AvatarModal = lazy(() => import('../../../components/modals/AvatarModal'));
 
 export default function Profile() {
   const { user, refresh } = useAuth();
   const run = useRun();
+  const toast = useToast();
   const [name, setName] = useState(user?.name ?? '');
   const [email, setEmail] = useState(user?.email ?? '');
   const [cropping, setCropping] = useState(false);
@@ -41,15 +44,16 @@ export default function Profile() {
       </div>
       <TextField label={t('Name')} value={name} onChange={setName} />
       <TextField label={t('Email')} type="email" value={email} onChange={setEmail} />
-      <dl className="grid grid-cols-2 gap-2 text-sm text-muted">
+      <dl className="grid grid-cols-2 items-center gap-2 text-sm text-muted">
+        <dt>{t('User ID')}</dt>
+        <dd className="flex flex-wrap items-center gap-2">
+          <code className="select-all break-all font-mono text-xs text-fg">{user.id}</code>
+          <Button variant="ghost" size="sm" onClick={() => copyText(user.id).then(() => toast.success(t('Copied to clipboard')), () => toast.error(t('Could not copy')))}>
+            {t('Copy')}
+          </Button>
+        </dd>
         <dt>{t('Member since')}</dt>
         <dd>{formatDate(user.createdAt)}</dd>
-        {user.storageLabel && (
-          <>
-            <dt>{t('Storage label')}</dt>
-            <dd>{user.storageLabel}</dd>
-          </>
-        )}
       </dl>
       <div>
         <Button disabled={name === user.name && email === user.email} onClick={save}>

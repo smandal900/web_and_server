@@ -5,12 +5,11 @@ import { HttpError, hashPassword, requireAdmin, requireAuth, toUserDto } from '.
 import { DEFAULT_PREFERENCES, emptyHeatmap } from './users.js';
 import { toSessionDto } from './sessions.js';
 import { DEFAULT_ADMIN_CONFIG, getAdminConfig, setAdminConfig } from '../system-config.js';
+import { NOW_SQL, wrap } from '../util.js';
 
 export const router = Router();
 router.use(requireAuth, requireAdmin);
 
-const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
-const NOW = "strftime('%Y-%m-%dT%H:%M:%fZ','now')";
 
 // --- system config ---
 router.get('/config', (_req, res) => res.json(getAdminConfig()));
@@ -69,7 +68,7 @@ router.put(
       throw new HttpError(400, 'The last admin cannot be demoted');
     }
     db.prepare(
-      `UPDATE users SET email = ?, name = ?, password_hash = ?, is_admin = ?, should_change_password = ?, updated_at = ${NOW}
+      `UPDATE users SET email = ?, name = ?, password_hash = ?, is_admin = ?, should_change_password = ?, updated_at = ${NOW_SQL}
        WHERE id = ?`,
     ).run(
       typeof email === 'string' && email.trim() ? email.trim() : user.email,
@@ -89,7 +88,7 @@ router.delete('/users/:id', (req, res) => {
   if (req.body?.force) {
     db.prepare('DELETE FROM users WHERE id = ?').run(user.id);
   } else {
-    db.prepare(`UPDATE users SET deleted_at = ${NOW}, updated_at = ${NOW} WHERE id = ?`).run(user.id);
+    db.prepare(`UPDATE users SET deleted_at = ${NOW_SQL}, updated_at = ${NOW_SQL} WHERE id = ?`).run(user.id);
     db.prepare('DELETE FROM sessions WHERE user_id = ?').run(user.id);
   }
   res.json(toUserDto(db.prepare('SELECT * FROM users WHERE id = ?').get(user.id) ?? { ...user, deleted_at: new Date().toISOString() }));
@@ -119,6 +118,6 @@ router.get('/users/:id/sessions', (req, res) => {
 
 router.post('/users/:id/restore', (req, res) => {
   const user = getUser(req.params.id);
-  db.prepare(`UPDATE users SET deleted_at = NULL, updated_at = ${NOW} WHERE id = ?`).run(user.id);
+  db.prepare(`UPDATE users SET deleted_at = NULL, updated_at = ${NOW_SQL} WHERE id = ?`).run(user.id);
   res.json(toUserDto(getUser(user.id)));
 });

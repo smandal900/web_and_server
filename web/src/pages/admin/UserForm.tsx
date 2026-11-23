@@ -10,7 +10,7 @@ import { useRun } from '../../hooks/useRun';
 import { t } from '../../i18n';
 
 const GIB = 1024 ** 3;
-const EMPTY = { name: '', email: '', password: '', isAdmin: false, shouldChangePassword: true, quotaGiB: undefined as number | undefined, storageLabel: '' };
+const EMPTY = { name: '', email: '', password: '', isAdmin: false, shouldChangePassword: true, quotaGiB: undefined as number | undefined };
 
 /** Create a user (/admin/users/new) or edit one (/admin/users/:id/edit). */
 export default function UserForm() {
@@ -24,7 +24,7 @@ export default function UserForm() {
 
   useEffect(() => {
     const u = existing.data;
-    if (u) setForm({ name: u.name, email: u.email, password: '', isAdmin: u.isAdmin, shouldChangePassword: u.shouldChangePassword, quotaGiB: u.quotaSizeInBytes ? u.quotaSizeInBytes / GIB : undefined, storageLabel: u.storageLabel ?? '' });
+    if (u) setForm({ name: u.name, email: u.email, password: '', isAdmin: u.isAdmin, shouldChangePassword: u.shouldChangePassword, quotaGiB: u.quotaSizeInBytes ? u.quotaSizeInBytes / GIB : undefined });
   }, [existing.data]);
 
   if (editing && existing.isLoading) return <PageSpinner />;
@@ -36,7 +36,6 @@ export default function UserForm() {
       isAdmin: form.isAdmin,
       shouldChangePassword: form.shouldChangePassword,
       quotaSizeInBytes: form.quotaGiB ? Math.round(form.quotaGiB * GIB) : null,
-      storageLabel: form.storageLabel || null,
       ...(form.password ? { password: form.password } : {}),
     };
     const result = await run(() => (editing ? updateAdminUser(id!, body) : createAdminUser(body)), { success: editing ? t('User saved') : t('User created'), invalidate: [['admin-users'], ['admin-user', id]] });
@@ -60,7 +59,6 @@ export default function UserForm() {
           <TextField label={editing ? t('New password') : t('Password')} help={editing ? t('Leave empty to keep the current password') : t('At least 8 characters')} type="password" autoComplete="new-password" value={form.password} onChange={set('password')} />
           <TextField label={t('Name')} value={form.name} onChange={set('name')} />
           <NumberField label={t('Quota (GiB)')} help={t('Empty means unlimited')} min={0} step={0.5} value={form.quotaGiB} onChange={set('quotaGiB')} />
-          <TextField label={t('Storage label')} help={t('A folder name for this user when a storage template uses {{label}}')} value={form.storageLabel} onChange={set('storageLabel')} />
           <Switch label={t('Administrator')} checked={form.isAdmin} onChange={set('isAdmin')} />
           <Switch label={t('Require password change at next login')} checked={form.shouldChangePassword} onChange={set('shouldChangePassword')} />
         </div>

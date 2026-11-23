@@ -12,6 +12,7 @@ import { t } from '../../../i18n';
 import { formatDate } from '../../../lib/format';
 import { PERMISSION_GROUPS } from '../../../lib/permissions';
 import { useToast } from '../../../state/ToastProvider';
+import { copyText } from '../../../lib/clipboard';
 
 /** Create or edit a key: a name plus either "everything" or a hand-picked set of permissions. */
 function KeyModal({ existing, onClose, onSecret }: { existing?: ApiKey; onClose: () => void; onSecret: (secret: string) => void }) {
@@ -96,7 +97,7 @@ export default function ApiKeys() {
         <Modal title={t('Your new API key')} size="sm" onClose={() => setSecret(undefined)} footer={<Button onClick={() => setSecret(undefined)}>{t('Done')}</Button>}>
           <p className="mb-2 text-sm text-warning">{t('Copy it now. It is shown only once.')}</p>
           <code className="block rounded-lg bg-panel p-3 text-xs break-all">{secret}</code>
-          <Button className="mt-3" variant="outline" size="sm" onClick={() => navigator.clipboard.writeText(secret).then(() => toast.success(t('Copied to clipboard')))}>
+          <Button className="mt-3" variant="outline" size="sm" onClick={() => copyText(secret).then(() => toast.success(t('Copied to clipboard')))}>
             {t('Copy')}
           </Button>
         </Modal>

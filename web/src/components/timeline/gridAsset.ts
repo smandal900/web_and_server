@@ -21,6 +21,25 @@ export interface GridAsset {
   localOffsetHours?: number;
 }
 
+/**
+ * A photo known only from the "select all" list: enough to run actions on it (favorite, archive, trash, ...), nothing to draw.
+ * Flags: 1 favorite, 2 archived, 4 locked, 8 video, 16 trashed.
+ */
+export const fromSelection = ([id, flags]: [string, number]): GridAsset => ({
+  id,
+  ratio: 1,
+  thumbhash: null,
+  isVideo: !!(flags & 8),
+  duration: null,
+  isFavorite: !!(flags & 1),
+  isArchived: !!(flags & 2),
+  isTrashed: !!(flags & 16),
+  isLocked: !!(flags & 4),
+  isLivePhoto: false,
+  isPanorama: false,
+  stackCount: 0,
+});
+
 export const fromTimeline = (a: TimelineAsset): GridAsset => ({
   id: a.id,
   ratio: a.ratio,

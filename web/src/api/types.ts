@@ -15,7 +15,6 @@ export interface User {
   shouldChangePassword: boolean;
   quotaSizeInBytes: number | null;
   quotaUsageInBytes: number | null;
-  storageLabel: string | null;
   clusterGroupId?: string;
   oauthId?: string;
   createdAt: string;
@@ -38,15 +37,12 @@ export interface LoginResponse {
 export interface ServerConfig {
   isInitialized: boolean;
   isOnboarded: boolean;
-  loginPageMessage: string;
   maintenanceMode: boolean;
   mapDarkStyleUrl: string;
   mapLightStyleUrl: string;
   oauthButtonText: string;
-  publicUsers: boolean;
   trashDays: number;
   userDeleteDelay: number;
-  externalDomain: string;
   minFaces: number;
 }
 export interface ServerFeatures {
@@ -60,7 +56,6 @@ export interface ServerFeatures {
   oauth: boolean;
   oauthAutoLaunch: boolean;
   passwordLogin: boolean;
-  email: boolean;
   reverseGeocoding: boolean;
   importFaces: boolean;
   sidecar: boolean;
@@ -364,7 +359,6 @@ export interface Preferences {
   albums: { defaultAssetOrder: 'asc' | 'desc' };
   cast: { gCastEnabled: boolean };
   download: { archiveSize: number; includeEmbeddedVideos: boolean };
-  emailNotifications: { enabled: boolean; albumInvite: boolean; albumUpdate: boolean };
   folders: { enabled: boolean; sidebarWeb: boolean };
   memories: { enabled: boolean; duration: number; sidebarWeb?: boolean };
   people: { enabled: boolean; sidebarWeb: boolean; updateStrategy?: string };

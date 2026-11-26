@@ -11,10 +11,11 @@ export const LIBRARY_DIR = path.join(DATA_DIR, 'library');
 export const THUMB_DIR = path.join(DATA_DIR, 'thumbs');
 export const TMP_DIR = path.join(DATA_DIR, 'tmp');
 export const PROFILE_DIR = path.join(DATA_DIR, 'profile');
+export const IMPORT_DIR = path.join(DATA_DIR, 'import-files'); // files dropped here by hand, see Administration > Import files
 export const PLACES_FILE = path.resolve(__dirname, '../geo/places.bin'); // offline place names, built by scripts/build-places.mjs
 export const WEB_BUILD_DIR = path.resolve(__dirname, process.env.WEB_BUILD_DIR || '../../web/build');
 
-for (const dir of [LIBRARY_DIR, THUMB_DIR, TMP_DIR, PROFILE_DIR]) fs.mkdirSync(dir, { recursive: true });
+for (const dir of [LIBRARY_DIR, THUMB_DIR, TMP_DIR, PROFILE_DIR, IMPORT_DIR]) fs.mkdirSync(dir, { recursive: true });
 
 export const THUMB_SIZES = {
   thumbnail: { px: 250, file: 'thumbnail.webp', mime: 'image/webp' },

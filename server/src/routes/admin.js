@@ -6,6 +6,8 @@ import { DEFAULT_PREFERENCES, emptyHeatmap } from './users.js';
 import { toSessionDto } from './sessions.js';
 import { DEFAULT_ADMIN_CONFIG, getAdminConfig, setAdminConfig } from '../system-config.js';
 import { NOW_SQL, wrap } from '../util.js';
+import { IMPORT_DIR } from '../paths.js';
+import { listImportFiles, importFolderFile } from '../import-files.js';
 
 export const router = Router();
 router.use(requireAuth, requireAdmin);
@@ -27,6 +29,25 @@ const getUser = (id) => {
   if (!user) throw new HttpError(404, 'User not found');
   return user;
 };
+
+// --- import files (data/import-files) ---
+router.get(
+  '/import-files',
+  wrap(async (_req, res) => res.json({ folder: IMPORT_DIR, files: await listImportFiles() })),
+);
+
+// one file per request, so the page can show each file's result as it happens
+router.post(
+  '/import-files',
+  wrap(async (req, res) => {
+    const { userId, name } = req.body ?? {};
+    if (typeof userId !== 'string' || !userId) throw new HttpError(400, 'userId should not be empty');
+    if (typeof name !== 'string' || !name) throw new HttpError(400, 'name should not be empty');
+    const user = getUser(userId);
+    if (user.deleted_at) throw new HttpError(400, 'This user is deleted');
+    res.json(await importFolderFile({ ownerId: user.id, name }));
+  }),
+);
 
 const adminCount = () =>
   db.prepare('SELECT COUNT(*) AS n FROM users WHERE is_admin = 1 AND deleted_at IS NULL').get().n;

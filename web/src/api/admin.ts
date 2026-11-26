@@ -19,6 +19,21 @@ export const getAdminConfig = () => call<AdminConfig>(E.admin.config);
 export const getAdminDefaults = () => call<AdminConfig>(E.admin.defaults);
 export const saveAdminConfig = (body: AdminConfig) => call<AdminConfig>(E.admin.saveConfig, { body });
 
+// --- import files (the server's data/import-files folder) --------------------
+export interface FolderFile {
+  name: string;
+  size: number;
+  modifiedAt: string;
+  supported: boolean;
+}
+export interface ImportResult {
+  status: 'uploaded' | 'duplicate' | 'unsupported' | 'waiting' | 'failed';
+  assetId?: string;
+  message?: string;
+}
+export const getImportFiles = () => call<{ folder: string; files: FolderFile[] }>(E.admin.importFiles);
+export const importFile = (userId: string, name: string) => call<ImportResult>(E.admin.importFile, { body: { userId, name } });
+
 // --- users ------------------------------------------------------------------
 export interface UserInput {
   email?: string;

@@ -19,8 +19,8 @@ import {
   uploadSingle,
   type ChunkedSession,
 } from '../api/uploads';
-import { useMediaTypes } from '../hooks/useServer';
-import { CHUNKED_THRESHOLD, chunkRange, missingChunks } from '../lib/chunks';
+import { useMediaTypes, useServerConfig } from '../hooks/useServer';
+import { chunkRange, missingChunks, shouldChunk } from '../lib/chunks';
 import { sha1Hex } from '../lib/sha1';
 import { uid } from '../lib/uid';
 import { useToast } from './ToastProvider';
@@ -56,6 +56,8 @@ export function UploadProvider({ children, shareKey }: { children: ReactNode; sh
   const qc = useQueryClient();
   const toast = useToast();
   const mediaTypes = useMediaTypes().data;
+  const chunkSize = useRef(0); // the server's chunk size, a ref so a running queue sees it without restarting
+  chunkSize.current = useServerConfig().data?.chunkSize ?? 0;
   const [items, setItems] = useState<UploadItem[]>([]);
   const [panelOpen, setPanelOpen] = useState(false);
   const controllers = useRef(new Map<string, AbortController>());
@@ -85,7 +87,7 @@ export function UploadProvider({ children, shareKey }: { children: ReactNode; sh
         patch(id, { status: 'uploading' });
         const meta = metaFromFile(file);
         let result;
-        if (file.size < CHUNKED_THRESHOLD) {
+        if (!shouldChunk(file.size, chunkSize.current)) {
           result = await uploadSingle(file, meta, (p) => patch(id, { progress: p }), controller.signal, shareKey);
         } else {
           let session = sessions.current.get(id);

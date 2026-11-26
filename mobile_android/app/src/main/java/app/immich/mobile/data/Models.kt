@@ -49,6 +49,8 @@ data class ServerStorage(
 @Serializable
 data class ServerConfig(
     val trashDays: Int = 30,
+    /** Bytes per chunk of a chunked upload; 0 when the server does not say. A file this small is not chunked. */
+    val chunkSize: Long = 0,
     val loginPageMessage: String = "",
     val mapLightStyleUrl: String = "",
     val mapDarkStyleUrl: String = "",

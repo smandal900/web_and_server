@@ -16,3 +16,6 @@ export function missingChunks(total: number, received: number[]): number[] {
 
 /** Files above this size use the resumable chunked upload; smaller ones use one request. */
 export const CHUNKED_THRESHOLD = 25 * 1024 * 1024;
+
+/** A file that fits in one chunk is never chunked (and never compressed): it goes as one plain request. */
+export const shouldChunk = (size: number, serverChunkSize = 0) => size > Math.max(CHUNKED_THRESHOLD, serverChunkSize);

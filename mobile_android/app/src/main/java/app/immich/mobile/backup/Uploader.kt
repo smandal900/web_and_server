@@ -49,12 +49,19 @@ class Uploader(private val api: ImmichApi) {
         checksum: String,
         onProgress: (Float) -> Unit,
     ): String = inFlight.getOrPut(asset.cacheKey) { Mutex() }.withLock {
-        if (asset.size > 0) {
+        // a file that fits in one chunk goes as one plain request: no upload session, no extra round trips
+        if (asset.size > serverChunkSize()) {
             val chunked = uploadChunked(context, asset, onProgress)
             if (chunked != null) return@withLock chunked
         }
         uploadMultipart(context, asset, checksum, onProgress)
     }
+
+    /** The server's chunk size in bytes, read once. 0 (unknown, or a server that predates the setting) means chunk as before. */
+    private var chunkSize: Long? = null
+
+    private suspend fun serverChunkSize(): Long =
+        chunkSize ?: (runCatching { api.config().chunkSize }.getOrDefault(0L)).also { if (it > 0) chunkSize = it }
 
     private suspend fun uploadChunked(context: Context, asset: LocalAsset, onProgress: (Float) -> Unit): String? {
         val base = api.baseUrl

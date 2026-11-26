@@ -27,6 +27,8 @@ router.get('/config', (_req, res) => {
     minFaces: c.machineLearning.facialRecognition.minFaces,
     oauthButtonText: c.oauth.buttonText,
     trashDays: c.trash.days,
+    // clients send a file that fits in one chunk as a single plain request instead of a chunked upload
+    chunkSize: c.upload.chunkSizeMiB * 1024 * 1024,
     userDeleteDelay: c.user.deleteDelay,
   });
 });

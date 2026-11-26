@@ -42,6 +42,7 @@ export interface ServerConfig {
   mapLightStyleUrl: string;
   oauthButtonText: string;
   trashDays: number;
+  chunkSize: number; // bytes
   userDeleteDelay: number;
   minFaces: number;
 }

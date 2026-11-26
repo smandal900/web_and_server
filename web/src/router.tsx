@@ -87,6 +87,7 @@ const adminRoutes: RouteObject[] = [
   { path: 'system-settings', element: page(() => import('./pages/admin/SystemSettings')) },
   { path: 'server-status', element: page(() => import('./pages/admin/ServerStatus')) },
   { path: 'error-log', element: page(() => import('./pages/admin/ErrorLog')) },
+  { path: 'import-files', element: page(() => import('./pages/admin/ImportFiles')) },
   { path: 'maintenance', element: page(() => import('./pages/admin/Maintenance')) },
   { path: 'maintenance/integrity-report/:type', element: page(() => import('./pages/admin/IntegrityReport')) },
   { path: 'library-management', element: page(() => import('./pages/admin/Libraries')) },

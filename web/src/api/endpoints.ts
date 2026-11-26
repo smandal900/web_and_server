@@ -79,6 +79,8 @@ export const E = {
     config: ok('GET', '/admin/config'),
     defaults: ok('GET', '/admin/config/defaults'),
     saveConfig: ok('PUT', '/admin/config'),
+    importFiles: ok('GET', '/admin/import-files'),
+    importFile: ok('POST', '/admin/import-files'),
     users: ok('GET', '/admin/users'),
     createUser: ok('POST', '/admin/users'),
     user: ok('GET', '/admin/users/{id}'),

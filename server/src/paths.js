@@ -13,6 +13,7 @@ export const TMP_DIR = path.join(DATA_DIR, 'tmp');
 export const PROFILE_DIR = path.join(DATA_DIR, 'profile');
 export const PLACES_FILE = path.resolve(__dirname, '../geo/places.bin'); // offline place names, built by scripts/build-places.mjs
 export const WEB_BUILD_DIR = path.resolve(__dirname, process.env.WEB_BUILD_DIR || '../../web/build');
+export const PWA_BUILD_DIR = path.resolve(__dirname, process.env.PWA_BUILD_DIR || '../../pwa/build'); // the phone app, served at /app/
 
 for (const dir of [LIBRARY_DIR, THUMB_DIR, TMP_DIR, PROFILE_DIR]) fs.mkdirSync(dir, { recursive: true });
 

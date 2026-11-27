@@ -4,7 +4,7 @@ import express from 'express';
 import path from 'node:path';
 import fs from 'node:fs';
 import { closeDb } from './db.js';
-import { WEB_BUILD_DIR } from './paths.js';
+import { PWA_BUILD_DIR, WEB_BUILD_DIR } from './paths.js';
 import { attachSocket, emitLocal } from './socket.js';
 import { setLocalEmitter } from './notify.js';
 import { apiErrorHandler, apiNotFound } from './error-handler.js';
@@ -23,6 +23,10 @@ api.get('/health', (_req, res) => res.json({ status: 'ok', uptime: process.uptim
 mountRoutes(api, await loadRoutes(Object.keys(GROUPS))); // every group in this one process
 api.use(apiNotFound);
 app.use('/api', api);
+
+// --- The phone app (pwa/build) under /app/ ---
+app.use('/app', express.static(PWA_BUILD_DIR));
+app.get('/app/{*splat}', (req, res, next) => (path.extname(req.path) ? next() : res.sendFile(path.join(PWA_BUILD_DIR, 'index.html'))));
 
 // --- Static SPA (web/build) ---
 if (fs.existsSync(WEB_BUILD_DIR)) {

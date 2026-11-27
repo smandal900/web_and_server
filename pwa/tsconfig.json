@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "types": ["vite/client"],
+    "paths": {
+      "@web/*": ["../web/src/*"],
+      "react": ["./node_modules/@types/react"],
+      "react/jsx-runtime": ["./node_modules/@types/react/jsx-runtime"],
+      "@tanstack/react-query": ["./node_modules/@tanstack/react-query"],
+      "@mdi/js": ["./node_modules/@mdi/js"],
+      "thumbhash": ["./node_modules/thumbhash"]
+    }
+  },
+  "include": ["src"]
+}

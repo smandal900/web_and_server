@@ -4,7 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { pipeline } from 'node:stream';
-import { WEB_BUILD_DIR } from './paths.js';
+import { PWA_BUILD_DIR, WEB_BUILD_DIR } from './paths.js';
 
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -27,17 +27,18 @@ const TYPES = {
 };
 
 const ROOT = path.resolve(WEB_BUILD_DIR);
-const INDEX = path.join(ROOT, 'index.html');
+// the phone app is a second build of its own, under /app/
+const PWA_ROOT = path.resolve(PWA_BUILD_DIR);
 
-function resolveFile(urlPath) {
+function resolveFile(root, urlPath) {
   let rel;
   try {
     rel = decodeURIComponent(urlPath);
   } catch {
     return null;
   }
-  const file = path.join(ROOT, path.normalize(rel));
-  return file === ROOT || file.startsWith(ROOT + path.sep) ? file : null; // no ../ escapes
+  const file = path.join(root, path.normalize(rel));
+  return file === root || file.startsWith(root + path.sep) ? file : null; // no ../ escapes
 }
 
 function send(req, res, file) {
@@ -73,7 +74,13 @@ export function serveWeb(req, res) {
     return res.end();
   }
   const { pathname } = new URL(req.url, 'http://localhost');
-  const file = resolveFile(pathname);
+  if (pathname === '/app') {
+    res.writeHead(301, { Location: '/app/' });
+    return res.end();
+  }
+  const phone = pathname.startsWith('/app/');
+  const root = phone ? PWA_ROOT : ROOT;
+  const file = resolveFile(root, phone ? pathname.slice('/app'.length) : pathname);
   if (!file) {
     res.writeHead(400);
     return res.end();
@@ -82,6 +89,6 @@ export function serveWeb(req, res) {
     if (!err && stat.isFile()) return send(req, res, file);
     // a missing file WITH an extension is a real 404; anything else is an app route
     if (path.extname(pathname)) return send(req, res, file);
-    send(req, res, INDEX);
+    send(req, res, path.join(root, 'index.html'));
   });
 }

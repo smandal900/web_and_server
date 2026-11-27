@@ -83,6 +83,9 @@ class AppPrefs(context: Context) {
     /** Group the timeline by day (true) or by month. */
     var groupByDay by BoolPref(sp, "groupByDay", true)
 
+    /** Photos taken close together that look alike share one tile in the Photos timeline. */
+    var groupSimilar by BoolPref(sp, "groupSimilar", true)
+
     /** The scrollbar scrolls continuously (true) or jumps from month to month. */
     var smoothScrubbing by BoolPref(sp, "smoothScrubbing", false)
     var storageIndicator by BoolPref(sp, "storageIndicator", true)

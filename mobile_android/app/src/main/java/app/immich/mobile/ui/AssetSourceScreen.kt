@@ -85,6 +85,8 @@ fun AssetSourceScreen(
     emptyMessage: String = "Nothing here yet",
     header: (@Composable () -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {},
+    /** Show similar photos as one tile (timelines only). */
+    similar: Boolean = false,
 ) {
     val context = LocalContext.current
     val app = context.app
@@ -255,6 +257,7 @@ fun AssetSourceScreen(
                     onOpen = onOpen,
                     contentPadding = contentPadding,
                     header = header,
+                    similar = similar,
                 )
 
                 else -> FlatGrid(source, selection, onOpen, contentPadding = contentPadding, header = header)

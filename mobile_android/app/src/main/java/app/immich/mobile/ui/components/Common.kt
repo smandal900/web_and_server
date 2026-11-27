@@ -128,10 +128,13 @@ fun AssetThumb(
             Row(
                 Modifier
                     .align(Alignment.TopEnd)
-                    .padding(top = if (item.isVideo || item.livePhotoVideoId != null) 26.dp else 6.dp, end = 6.dp),
+                    .padding(top = if (item.isVideo || item.livePhotoVideoId != null) 26.dp else 6.dp, end = 6.dp)
+                    // a dark pill, so the number can be read on a bright photo
+                    .background(Color(0x88000000), RoundedCornerShape(50))
+                    .padding(horizontal = 6.dp, vertical = 1.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("${item.stackCount}", color = Color.White, fontSize = 11.sp)
+                Text("${item.stackCount}", color = Color.White, fontSize = 12.sp)
                 Icon(Icons.Filled.Layers, null, tint = Color.White, modifier = Modifier.size(14.dp))
             }
         }

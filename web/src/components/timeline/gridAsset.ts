@@ -15,6 +15,8 @@ export interface GridAsset {
   isLivePhoto: boolean;
   isPanorama: boolean;
   stackCount: number;
+  /** Set on the one tile that stands for several similar photos (see lib/similar.ts): all their ids. */
+  similarIds?: string[];
   ownerId?: string;
   /** Used to group by day. Only the timeline fills `localOffsetHours`. */
   fileCreatedAt?: string;

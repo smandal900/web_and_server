@@ -34,11 +34,16 @@ export const Thumbnail = memo(function Thumbnail({ asset, width, height, shareKe
   const selection = useSelectionContext();
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
-  const selected = !!selection?.has(asset.id);
+  // a tile that stands for several similar photos is selected when all of them are, and selects all of them
+  const selected = !!selection && (asset.similarIds ?? [asset.id]).every((id) => selection.has(id));
   const selecting = !!selection && (selection.active || selection.alwaysSelect);
 
+  const toggle = (range: boolean) => {
+    selection!.toggle(asset.id, range);
+    if (asset.similarIds) selection!.setMany(asset.similarIds, range || !selected);
+  };
   const click = (e: React.MouseEvent) => {
-    if (selecting && selectable) selection!.toggle(asset.id, e.shiftKey);
+    if (selecting && selectable) toggle(e.shiftKey);
     else onOpen(asset.id);
   };
 
@@ -80,7 +85,7 @@ export const Thumbnail = memo(function Thumbnail({ asset, width, height, shareKe
           aria-pressed={selected}
           onClick={(e) => {
             e.stopPropagation();
-            selection.toggle(asset.id, e.shiftKey);
+            toggle(e.shiftKey);
           }}
           className={cx('absolute top-1.5 left-1.5 text-white drop-shadow transition', selected ? 'text-primary opacity-100' : 'opacity-0 group-hover:opacity-100', selecting && 'opacity-100')}
         >

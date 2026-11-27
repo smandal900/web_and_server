@@ -674,6 +674,13 @@ internal fun PhotoGridPage(showDevice: Boolean, onShowDevice: (Boolean) -> Unit)
         item { SwitchTile("Show storage indicator on asset tiles", null, prefs.storageIndicator) { prefs.storageIndicator = it } }
         item {
             SwitchTile(
+                "Group similar photos",
+                "Photos taken close together that look alike share one tile with their number",
+                prefs.groupSimilar,
+            ) { prefs.groupSimilar = it }
+        }
+        item {
+            SwitchTile(
                 "Smooth timeline scrubbing",
                 "Scroll continuously when dragging the scrollbar instead of snapping to months",
                 prefs.smoothScrubbing,

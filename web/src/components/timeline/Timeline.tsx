@@ -7,6 +7,7 @@ import type { ActionContext, ActionId } from '../../hooks/useAssetActions';
 import { useShortcut } from '../../hooks/useShortcuts';
 import { useTimelineBuckets, useTimelineMonths } from '../../hooks/useTimeline';
 import { useElementWidth } from '../../hooks/useElementWidth';
+import { similarTo } from '../../lib/similar';
 import { Boundary } from '../ui/Boundary';
 import { PageSpinner } from '../ui/Spinner';
 import { EmptyState } from '../ui/Misc';
@@ -41,6 +42,8 @@ export interface TimelineProps {
   customActions?: CustomAction[];
   /** Asset-picker mode: clicks select, and one button hands the chosen ids to the caller. */
   pick?: PickMode;
+  /** Show similar photos as one tile with their number (see lib/similar.ts). */
+  similar?: boolean;
 }
 
 /**
@@ -53,7 +56,7 @@ export function Timeline(props: TimelineProps) {
   return <TimelineInner key={JSON.stringify(props.query)} {...props} />;
 }
 
-function TimelineInner({ query, base, empty, actions = MAIN_ACTIONS, actionContext, header, shareKey, selectable = true, albumId, readOnly, customActions, pick }: TimelineProps) {
+function TimelineInner({ query, base, empty, actions = MAIN_ACTIONS, actionContext, header, shareKey, selectable = true, albumId, readOnly, customActions, pick, similar }: TimelineProps) {
   const [scrollRoot, setScrollRoot] = useState<HTMLDivElement | null>(null);
   // A state-backed ref: the width is re-measured as soon as the list container actually exists.
   const [inner, setInner] = useState<HTMLDivElement | null>(null);
@@ -110,6 +113,9 @@ function TimelineInner({ query, base, empty, actions = MAIN_ACTIONS, actionConte
 
   useShortcut('a', (e) => (e.preventDefault(), void selectEverything()), { modifier: 'ctrl' });
 
+  // the photos that share a tile with the one open in the viewer
+  const similarIds = useMemo(() => (similar && route.assetId ? similarTo(ordered, route.assetId) : undefined), [similar, route.assetId, ordered]);
+
   // A viewer link opened directly: make sure the month of that picture is loaded so prev/next work.
   const onAssetLoaded = useCallback((asset: Asset) => pin(`${(asset.localDateTime ?? asset.fileCreatedAt).slice(0, 7)}-01`), [pin]);
 
@@ -151,6 +157,7 @@ function TimelineInner({ query, base, empty, actions = MAIN_ACTIONS, actionConte
                   onOpen={route.open}
                   shareKey={shareKey}
                   selectable={selectable}
+                  similar={similar}
                 />
               ))
             )}
@@ -166,6 +173,7 @@ function TimelineInner({ query, base, empty, actions = MAIN_ACTIONS, actionConte
             <AssetViewer
               assetId={route.assetId}
               assetIds={orderedIds}
+              similarIds={similarIds}
               onShow={route.show}
               onClose={route.close}
               onAssetLoaded={onAssetLoaded}

@@ -109,14 +109,15 @@ private sealed interface TimelineEntry {
         val to: Int = 0,
     ) : TimelineEntry
 
-    data class Cell(val bucket: Int, val index: Int, override val month: String) : TimelineEntry
+    /** [index] is the asset shown. For similar photos sharing the tile, [first] and [count] say which ones they are. */
+    data class Cell(val bucket: Int, val index: Int, override val month: String, val first: Int = index, val count: Int = 1) : TimelineEntry
 }
 
 // like the official app: a day is "Mon, Nov 2, 2026", a month heading is "November" (with the year for other years)
 private val dayFormat = DateTimeFormatter.ofPattern("EEE, MMM d, yyyy", Locale.getDefault())
 private val monthOnlyFormat = DateTimeFormatter.ofPattern("MMMM", Locale.getDefault())
 
-private fun dayOf(item: AssetItem): LocalDate? = try {
+internal fun dayOf(item: AssetItem): LocalDate? = try {
     val zone = ZoneId.systemDefault()
     val created = item.createdAt
     if (item.isLocal || created == null) {
@@ -137,29 +138,36 @@ private fun dayOf(item: AssetItem): LocalDate? = try {
  * The rows of the grid. Grouped by month there is one heading per month. Grouped by day, every month whose assets are
  * loaded is split in one heading per day; a month that is still loading keeps its month heading.
  */
-private fun timelineEntries(source: TimelineSource, byDay: Boolean): List<TimelineEntry> {
+private fun timelineEntries(source: TimelineSource, byDay: Boolean, similar: Boolean): List<TimelineEntry> {
     val entries = ArrayList<TimelineEntry>(source.size + source.buckets.size)
     val thisYear = LocalDate.now().year
     source.buckets.forEachIndexed { b, bucket ->
         val month = bucketLabel(bucket.timeBucket)
         val assets = bucket.assets
-        if (!byDay || assets == null) {
+        if (assets == null || (!byDay && !similar)) {
             entries += TimelineEntry.Heading("month-${bucket.timeBucket}", month, month)
             for (i in 0 until bucket.size) entries += TimelineEntry.Cell(b, i, month)
         } else {
             val monthDate = runCatching { LocalDate.parse(bucket.timeBucket.take(10)) }.getOrNull()
             val monthLabel = if (monthDate != null && monthDate.year == thisYear) monthDate.format(monthOnlyFormat) else month
-            entries += TimelineEntry.Heading("month-${bucket.timeBucket}", monthLabel, month)
+            entries += TimelineEntry.Heading("month-${bucket.timeBucket}", if (byDay) monthLabel else month, month)
+            // similar photos never cross a day, so every group lies inside one day
+            val groups = if (similar) Similar.group(assets).associateBy { it.first } else emptyMap()
             var start = 0
             while (start < assets.size) {
                 val day = dayOf(assets[start])
                 var end = start + 1
                 while (end < assets.size && dayOf(assets[end]) == day) end++
-                entries += TimelineEntry.Heading(
+                if (byDay) entries += TimelineEntry.Heading(
                     "day-${bucket.timeBucket}-$day-$start", day?.format(dayFormat) ?: month, month,
                     isMonth = false, bucket = b, from = start, to = end,
                 )
-                for (i in start until end) entries += TimelineEntry.Cell(b, i, month)
+                var i = start
+                while (i < end) {
+                    val group = groups[i] ?: i..i
+                    entries += TimelineEntry.Cell(b, Similar.cover(assets, group), month, group.first, group.last - group.first + 1)
+                    i = group.last + 1
+                }
                 start = end
             }
         }
@@ -178,13 +186,15 @@ fun TimelineGrid(
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(),
     header: (@Composable () -> Unit)? = null,
+    /** Show similar photos as one tile with their number. */
+    similar: Boolean = false,
 ) {
     val prefs = LocalContext.current.app.prefs
     val state = rememberLazyGridState()
     val columns = rememberColumns()
     val headerCount = if (header != null) 1 else 0
     val byDay = prefs.groupByDay
-    val entries = remember(source.buckets, byDay) { timelineEntries(source, byDay) }
+    val entries = remember(source.buckets, byDay, similar) { timelineEntries(source, byDay, similar) }
 
     // where the first row of every month is, so the scrubber can snap to months
     val monthStart = remember(entries) {
@@ -238,7 +248,13 @@ fun TimelineGrid(
                         val bucket = source.buckets.getOrNull(entry.bucket)
                         val item = bucket?.assets?.getOrNull(entry.index)
                         if (item == null) LaunchedEffect(bucket?.timeBucket) { source.loadBucket(entry.bucket) }
-                        ThumbCell(item, selection, onOpen = { onOpen(source.offsetOf(entry.bucket) + entry.index) })
+                        val assets = bucket?.assets
+                        val group = if (entry.count > 1 && assets != null && entry.first + entry.count <= assets.size) {
+                            assets.subList(entry.first, entry.first + entry.count)
+                        } else {
+                            null
+                        }
+                        ThumbCell(item, selection, group = group, onOpen = { onOpen(source.offsetOf(entry.bucket) + entry.index) })
                     }
                 }
             }
@@ -313,18 +329,25 @@ private fun DayHeading(entry: TimelineEntry.Heading, source: TimelineSource, sel
 }
 
 @Composable
-private fun ThumbCell(item: AssetItem?, selection: Selection, onOpen: () -> Unit) {
-    val selected = item != null && selection.contains(item.id)
+private fun ThumbCell(item: AssetItem?, selection: Selection, onOpen: () -> Unit, group: List<AssetItem>? = null) {
+    // a tile that stands for several similar photos is selected when all of them are, and selects all of them
+    val members = group ?: listOfNotNull(item)
+    val selected = members.isNotEmpty() && members.all { selection.contains(it.id) }
     AssetThumb(
-        item = item,
+        // their number is shown where a stack shows its count
+        item = if (group != null) item?.copy(stackCount = group.size) else item,
         modifier = Modifier.fillMaxWidth().aspectRatio(1f),
         selecting = selection.active,
         selected = selected,
         onClick = {
             if (item == null) return@AssetThumb
-            if (selection.active) selection.toggle(item) else onOpen()
+            when {
+                !selection.active -> onOpen()
+                selected -> members.forEach { selection.toggle(it) }
+                else -> members.forEach { selection.add(it) }
+            }
         },
-        onLongClick = { if (item != null) selection.add(item) },
+        onLongClick = { members.forEach { selection.add(it) } },
     )
 }
 

@@ -452,6 +452,7 @@ private fun PhotosTab(nav: NavHostController) {
         source = source,
         kind = SourceKind.Library,
         emptyMessage = "No photos yet. Back up your gallery from the Library tab.",
+        similar = app.prefs.groupSimilar,
         onOpen = { nav.navigate(Routes.viewer("timeline", it)) },
         header = if (memories.isEmpty()) null else {
             { MemoriesRow(memories) { memory -> nav.navigate(Routes.memory(memories.indexOf(memory))) } }

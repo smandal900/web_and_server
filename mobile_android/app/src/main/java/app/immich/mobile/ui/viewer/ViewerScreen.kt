@@ -105,6 +105,8 @@ import androidx.media3.ui.PlayerView
 import app.immich.mobile.app
 import app.immich.mobile.data.AssetDto
 import app.immich.mobile.data.AssetItem
+import app.immich.mobile.data.TimelineSource
+import app.immich.mobile.ui.components.Similar
 import app.immich.mobile.data.PagedSource
 import app.immich.mobile.data.deleteStack
 import app.immich.mobile.data.setStackPrimary
@@ -240,6 +242,33 @@ fun ViewerScreen(
                     onTap = toggleChrome,
                     slideshow = slideshow,
                     onNavigate = { step -> scope.launch { pager.animateScrollToPage((pager.currentPage + step).coerceIn(0, source.size - 1)) } },
+                )
+            }
+        }
+
+        // similar photos that share a tile in the Photos timeline: the strip jumps between them
+        val timeline = (source as? TimelineSource)?.takeIf { sourceKey == "timeline" && app.prefs.groupSimilar }
+        val similar = remember(timeline, timeline?.buckets, pager.currentPage) {
+            timeline?.takeIf { pager.currentPage < it.size }?.let { all ->
+                val bucket = all.bucketIndexOf(pager.currentPage)
+                val assets = all.buckets.getOrNull(bucket)?.assets ?: return@let null
+                val index = pager.currentPage - all.offsetOf(bucket)
+                val group = Similar.group(assets).firstOrNull { index in it && it.first != it.last } ?: return@let null
+                (all.offsetOf(bucket) + group.first) to assets.slice(group)
+            }
+        }
+        AnimatedVisibility(
+            visible = chrome && similar != null,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier.align(Alignment.BottomCenter),
+        ) {
+            if (similar != null) {
+                val (start, photos) = similar
+                StackStrip(
+                    members = photos,
+                    selectedId = currentBase?.id,
+                    onSelect = { chosen -> scope.launch { pager.scrollToPage(start + photos.indexOfFirst { it.id == chosen.id }) } },
                 )
             }
         }
@@ -559,8 +588,13 @@ private fun ImagePage(item: AssetItem, onTap: () -> Unit, slideshow: Boolean = f
                         .blur(40.dp),
                 )
             }
-            ThumbHash.placeholder(item.thumbhash)?.let {
-                Image(it, null, contentScale = fit, modifier = Modifier.fillMaxSize())
+            // The blurred placeholder only until a real picture shows: its shape is approximate, so left underneath it
+            // would stick out as a coloured border above and below (or beside) the photo.
+            var loaded by remember(item.id) { mutableStateOf(false) }
+            if (!loaded) {
+                ThumbHash.placeholder(item.thumbhash)?.let {
+                    Image(it, null, contentScale = fit, modifier = Modifier.fillMaxSize())
+                }
             }
             // the thumbnail is in the cache already, so something shows while the larger preview loads
             AsyncImage(
@@ -568,12 +602,14 @@ private fun ImagePage(item: AssetItem, onTap: () -> Unit, slideshow: Boolean = f
                 contentDescription = null,
                 contentScale = fit,
                 modifier = Modifier.fillMaxSize(),
+                onSuccess = { loaded = true },
             )
             AsyncImage(
                 model = remote?.let { api.previewUrl(it) } ?: item.localUri ?: api.previewUrl(item.id, item.thumbhash),
                 contentDescription = null,
                 contentScale = fit,
                 modifier = Modifier.fillMaxSize(),
+                onSuccess = { loaded = true },
             )
             // the full file on top, when the user asked for it (the preview stays visible if it cannot be decoded)
             if (prefs.loadOriginalImage && item.localUri == null) {

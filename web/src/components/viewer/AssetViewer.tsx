@@ -18,7 +18,7 @@ import {
   mdiTextRecognition,
 } from '@mdi/js';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getAsset, originalUrl } from '../../api/assets';
+import { getAsset, originalUrl, thumbnailUrl } from '../../api/assets';
 import { updateAlbum } from '../../api/library';
 import type { Asset } from '../../api/types';
 import { useAssetActions, type ActionContext, type ActionId } from '../../hooks/useAssetActions';
@@ -27,6 +27,7 @@ import { useRun } from '../../hooks/useRun';
 import { useShortcut } from '../../hooks/useShortcuts';
 import { t } from '../../i18n';
 import { castMedia } from '../../lib/cast';
+import { cx } from '../../lib/cx';
 import { formatDate } from '../../lib/format';
 import { slideshowOrder, type SlideshowSettings } from '../../lib/slideshow';
 import { useAuth } from '../../state/AuthProvider';
@@ -53,6 +54,8 @@ export interface ViewerProps {
   assetId: string;
   /** Ids in display order, for previous/next. May be partial while a timeline is still loading. */
   assetIds: string[];
+  /** The similar photos that share a tile with the current one: shown as a strip to switch between them. */
+  similarIds?: string[];
   onShow: (id: string) => void;
   onClose: () => void;
   onAssetLoaded?: (asset: Asset) => void;
@@ -75,7 +78,7 @@ const infoPref = () => {
   }
 };
 
-export default function AssetViewer({ assetId, assetIds, onShow, onClose, onAssetLoaded, onNeedMore, actions: allowed = [], context = {}, albumId, shareKey, readOnly }: ViewerProps) {
+export default function AssetViewer({ assetId, assetIds, similarIds, onShow, onClose, onAssetLoaded, onNeedMore, actions: allowed = [], context = {}, albumId, shareKey, readOnly }: ViewerProps) {
   const { user } = useAuth();
   const { preferences } = usePreferences();
   const qc = useQueryClient();
@@ -251,6 +254,25 @@ export default function AssetViewer({ assetId, assetIds, onShow, onClose, onAsse
         {/* previous / next arrows (not while the bar is hidden by the slideshow) */}
         {showBar && prevId && <IconButton path={mdiChevronLeft} label={t('Previous')} size={32} onClick={() => onShow(prevId)} className="absolute top-1/2 left-2 z-10 -translate-y-1/2 bg-black/40 text-white hover:bg-black/60 max-md:hidden" />}
         {showBar && nextId && <IconButton path={mdiChevronRight} label={t('Next')} size={32} onClick={() => onShow(nextId)} className="absolute top-1/2 right-2 z-10 -translate-y-1/2 bg-black/40 text-white hover:bg-black/60 max-md:hidden" />}
+
+        {showBar && mode === 'view' && similarIds && (
+          <div className="absolute inset-x-0 bottom-3 z-10 flex justify-center px-3">
+            <div className="flex max-w-full gap-1 overflow-x-auto rounded-xl bg-black/60 p-1" aria-label={t('Similar photos')} role="group">
+              {similarIds.map((id, i) => (
+                <button
+                  key={id}
+                  type="button"
+                  aria-label={t('Similar photo {n} of {total}', { n: i + 1, total: similarIds.length })}
+                  aria-current={id === assetId}
+                  onClick={() => onShow(id)}
+                  className={cx('size-14 shrink-0 overflow-hidden rounded-lg border-2', id === assetId ? 'border-white' : 'border-transparent opacity-60 hover:opacity-100')}
+                >
+                  <img src={thumbnailUrl(id, 'thumbnail', shareKey)} alt="" className="size-full object-cover" />
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {slideshow && (
           <>

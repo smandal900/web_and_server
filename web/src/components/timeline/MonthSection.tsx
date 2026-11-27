@@ -3,6 +3,7 @@ import { mdiCheckCircle, mdiCircleOutline } from '@mdi/js';
 import type { TimelineAsset, TimelineBucket } from '../../api/types';
 import { formatDayHeading, formatMonth, groupByDay, monthId } from '../../lib/dates';
 import { cx } from '../../lib/cx';
+import { coverOf, groupSimilar } from '../../lib/similar';
 import { Icon } from '../ui/Icon';
 import { GAP, AssetGrid, rowHeightFor } from './AssetGrid';
 import { fromTimeline } from './gridAsset';
@@ -22,9 +23,15 @@ export function estimateMonthHeight(count: number, width: number) {
   return Math.ceil(count / perRow) * (rowHeight + GAP) + days * DAY_HEADER;
 }
 
-function DaySection({ day, assets, width, shareKey, onOpen, selectable }: { day: string; assets: TimelineAsset[]; width: number; shareKey?: string; onOpen: (id: string) => void; selectable: boolean }) {
+function DaySection({ day, assets, width, shareKey, onOpen, selectable, similar }: { day: string; assets: TimelineAsset[]; width: number; shareKey?: string; onOpen: (id: string) => void; selectable: boolean; similar?: boolean }) {
   const selection = useSelectionContext();
-  const grid = useMemo(() => assets.map(fromTimeline), [assets]);
+  const grid = useMemo(() => {
+    if (!similar) return assets.map(fromTimeline);
+    // similar photos share one tile, with their number where a stack shows its count
+    return groupSimilar(assets).map((group) =>
+      group.length > 1 ? { ...fromTimeline(coverOf(group)), stackCount: group.length, similarIds: group.map((a) => a.id) } : fromTimeline(group[0]),
+    );
+  }, [assets, similar]);
   const ids = useMemo(() => assets.map((a) => a.id), [assets]);
   const allSelected = !!selection && ids.every((id) => selection.has(id));
 
@@ -60,13 +67,15 @@ interface MonthSectionProps {
   onOpen: (id: string) => void;
   shareKey?: string;
   selectable?: boolean;
+  /** Show similar photos as one tile. */
+  similar?: boolean;
 }
 
 /**
  * One month. Only months near the screen hold pictures (data, DOM and <img> elements); every other month is an
  * empty box of the right height. Scrolling away from a month frees it; scrolling back reloads it.
  */
-export const MonthSection = memo(function MonthSection({ bucket, width, assets, failed, scrollRoot, onNear, onFar, onOpen, shareKey, selectable = true }: MonthSectionProps) {
+export const MonthSection = memo(function MonthSection({ bucket, width, assets, failed, scrollRoot, onNear, onFar, onOpen, shareKey, selectable = true, similar }: MonthSectionProps) {
   const box = useRef<HTMLElement>(null);
   const loaded = !!assets;
   const measured = useRef<number | undefined>(undefined); // real height while loaded, reused as the placeholder height after unloading
@@ -104,7 +113,7 @@ export const MonthSection = memo(function MonthSection({ bucket, width, assets, 
       style={loaded ? undefined : { height: measured.current ?? estimateMonthHeight(bucket.count, width) }}
     >
       {loaded ? (
-        groups.map((g) => <DaySection key={g.day} day={g.day} assets={g.assets} width={width} shareKey={shareKey} onOpen={onOpen} selectable={selectable} />)
+        groups.map((g) => <DaySection key={g.day} day={g.day} assets={g.assets} width={width} shareKey={shareKey} onOpen={onOpen} selectable={selectable} similar={similar} />)
       ) : (
         <div className="pt-3">
           <p className="text-sm font-medium text-muted">{failed ? 'Could not load this month' : formatMonth(bucket.timeBucket)}</p>
